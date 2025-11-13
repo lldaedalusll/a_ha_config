@@ -1,0 +1,47 @@
+###############################################################################
+#  SERVICE-SKRIPT: Solar-Ersparnisse zurücksetzen (mit Bestätigung, Fix)
+###############################################################################
+script:
+  solar_savings_reset:
+    alias: "Solar-Ersparnisse zurücksetzen"
+    icon: mdi:restore
+    mode: single
+    
+    fields:
+      confirm:
+        name: Bestätigung erforderlich
+        description: "Muss 'ja' oder 'yes' sein, um wirklich zu löschen."
+        example: "ja"
+        required: false
+        default: ""
+    sequence:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ confirm | lower in ['ja','yes','y'] }}
+            sequence:
+              - service: input_number.set_value
+                target:
+                  entity_id:
+                    - input_number.saving_pv_total
+                    - input_number.saving_battery
+                    - input_number.saving_pv_passthrough
+                data:
+                  value: 0
+              - service: logbook.log
+                data:
+                  name: "Solar Savings Reset"
+                  message: "🔄 Alle Ersparniszähler wurden auf 0 € zurückgesetzt."
+              - choose:
+                  - conditions: "{{ is_state('input_boolean.solar_savings_debug','on') }}"
+                    sequence:
+                      - service: system_log.write
+                        data:
+                          level: warning
+                          message: "[Solar Savings] Alle Ersparniszähler auf 0 € gesetzt (per Skript)."
+        default:
+          - service: logbook.log
+            data:
+              name: "Solar Savings Reset"
+              message: "❌ Rücksetzen abgebrochen (keine Bestätigung)."
