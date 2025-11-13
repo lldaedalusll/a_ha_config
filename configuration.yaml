@@ -1,0 +1,33 @@
+# Grundlegende Home Assistant configuration.yaml Vorlage
+# Passe Name, Koordinaten und Zeitzone an deine Umgebung an.
+
+homeassistant:
+  name: Home
+  latitude: 51.000000
+  longitude: 7.000000
+  elevation: 0
+  unit_system: metric
+  time_zone: Europe/Berlin
+
+# Aktiviert die Standard-Integrationen (recommended)
+default_config:
+
+# Beispiel: MQTT (auskommentiert - aktivieren und anpassen falls gewünscht)
+# mqtt:
+#   broker: 192.168.1.10
+#   port: 1883
+#   username: your_user
+#   password: your_password
+
+# Beispiel: HTTP-Server Einstellungen (Port, etc.)
+# http:
+#   server_port: 8123
+
+# Orte zum Hinzufügen eigener Integrationen, Automations- und Sensor-Dateien:
+# - automation: automations.yaml
+# - scripts: scripts.yaml
+# - sensors: sensors.yaml
+#
+# Weitere Hinweise:
+# - Zerlege große Konfigurationen in mehrere Dateien und nutze !include.
+# - Entferne oder passe Beispielabschnitte an deine Installation an.
