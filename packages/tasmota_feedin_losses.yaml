@@ -1,0 +1,123 @@
+###############################################################################
+#  PACKAGE: Solar Feed-in Loss (negativ wachsend)
+#  Version: 2025-11
+###############################################################################
+#  Beschreibung:
+#   - Berechnet laufend die „Verluste“ durch Einspeisung (nicht selbst genutzten Strom)
+#   - Verlustbetrag = -ΔkWh × Strompreis → negative laufende Summe
+#   - Differenz aus aktuellem und vorherigem Zählerstand (kWh)
+#   - Preisquelle: input_number.strom_preis_pro_kwh (sofort verfügbar, stabil)
+#   - Optionales Debug-Logging über input_boolean.solar_feedin_debug
+###############################################################################
+
+###############################################################################
+#  INPUT NUMBERS (persistente Summen)
+###############################################################################
+input_number:
+  saving_feedin_loss:
+    name: "Verlust durch Einspeisung"
+    icon: mdi:transmission-tower-export
+    min: -1000000
+    max: 0
+    step: 0.000001
+    unit_of_measurement: "€"
+    mode: box
+
+###############################################################################
+#  DEBUG-SCHALTER
+###############################################################################
+input_boolean:
+  solar_feedin_debug:
+    name: "Solar Feed-in Debug Logging"
+    icon: mdi:bug
+
+###############################################################################
+#  TEMPLATE-SENSOREN
+###############################################################################
+template:
+  - sensor:
+      - name: "saving.feedin_loss"
+        unique_id: "saving_feedin_loss_template"
+        unit_of_measurement: "€"
+        icon: mdi:transmission-tower-export
+        state: "{{ states('input_number.saving_feedin_loss') | float(0) | round(2) }}"
+
+###############################################################################
+#  AUTOMATIONEN
+###############################################################################
+automation:
+
+  ###########################################################################
+  # 0️⃣ Initialisierung beim Systemstart
+  # Setzt die Verlustsumme auf 0 und ignoriert alte Messdifferenzen
+  ###########################################################################
+  - alias: "Feed-in Loss Initialisierung"
+    id: feedin_loss_init
+    trigger:
+      - platform: homeassistant
+        event: start
+    action:
+      - variables:
+          curr: "{{ states('sensor.tasmota_energy_supply_kwh') | float(0) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.saving_feedin_loss
+        data:
+          value: 0
+      - service: logbook.log
+        data:
+          name: "Solar Feed-in Loss Init"
+          message: "Feed-in Loss Zähler auf 0 gesetzt. Aktueller Einspeisezähler: {{ curr }} kWh"
+
+  ###########################################################################
+  # 1️⃣ Einspeiseverluste laufend aufsummieren (negativ wachsend)
+  # Schutz vor 0-Preis oder Neustartbedingungen integriert
+  ###########################################################################
+  - alias: "Einspeiseverluste laufend aufsummieren (negativ)"
+    id: solar_savings_increment_feedin_loss_negative
+    mode: queued
+    trigger:
+      - platform: state
+        entity_id: sensor.tasmota_energy_supply_kwh
+
+    variables:
+      prev: "{{ trigger.from_state.state | float(0) }}"
+      curr: "{{ trigger.to_state.state | float(0) }}"
+      delta_kwh: "{{ curr - prev if prev != 0 else 0 }}"
+      price: "{{ states('input_number.strom_preis_pro_kwh') | float(0) }}"
+      delta_loss_eur: >
+        {% if price > 0 %}
+          {{ -1 * delta_kwh * price }}
+        {% else %}
+          0
+        {% endif %}
+
+    condition:
+      # Nur ausführen, wenn gültiger Preis und sinnvolle Differenz
+      - condition: template
+        value_template: "{{ delta_kwh | float(0) != 0 and price > 0 }}"
+
+    action:
+      # Optionales Debug-Logging
+      - choose:
+          - conditions: "{{ is_state('input_boolean.solar_feedin_debug','on') }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: "Solar Feed-in Loss"
+                  message: >
+                    ⚡ Einspeise-Log:
+                    Prev={{ prev | round(4) }} kWh,
+                    Curr={{ curr | round(4) }} kWh,
+                    Δ={{ delta_kwh | round(6) }} kWh,
+                    Preis={{ price | round(4) }} €/kWh,
+                    Verlust={{ delta_loss_eur | round(6) }} € (negativ),
+                    Gesamt={{ states('input_number.saving_feedin_loss') | float(0) | round(6) }} €
+
+      # Laufende Verluste aufsummieren (negativ wachsend)
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.saving_feedin_loss
+        data:
+          value: >
+            {{ (states('input_number.saving_feedin_loss') | float(0) + delta_loss_eur) | round(6) }}
