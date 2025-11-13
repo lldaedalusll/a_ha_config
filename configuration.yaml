@@ -1,33 +1,90 @@
-# Grundlegende Home Assistant configuration.yaml Vorlage
-# Passe Name, Koordinaten und Zeitzone an deine Umgebung an.
-
-homeassistant:
-  name: Home
-  latitude: 51.000000
-  longitude: 7.000000
-  elevation: 0
-  unit_system: metric
-  time_zone: Europe/Berlin
-
-# Aktiviert die Standard-Integrationen (recommended)
+# Loads default set of integrations. Do not remove.
 default_config:
 
-# Beispiel: MQTT (auskommentiert - aktivieren und anpassen falls gewünscht)
-# mqtt:
-#   broker: 192.168.1.10
-#   port: 1883
-#   username: your_user
-#   password: your_password
 
-# Beispiel: HTTP-Server Einstellungen (Port, etc.)
-# http:
-#   server_port: 8123
-
-# Orte zum Hinzufügen eigener Integrationen, Automations- und Sensor-Dateien:
-# - automation: automations.yaml
-# - scripts: scripts.yaml
-# - sensors: sensors.yaml
+homeassistant:
+  allowlist_external_dirs:
+  - "/config"
 #
-# Weitere Hinweise:
-# - Zerlege große Konfigurationen in mehrere Dateien und nutze !include.
-# - Entferne oder passe Beispielabschnitte an deine Installation an.
+# uncomment here to activate new stuff
+#
+  #
+  # WORKAROUND: put all custom automations here !!
+  #
+  packages: !include_dir_named packages/
+
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+
+# Text to speech
+# tts:
+#  - platform: pc
+
+
+influxdb:
+  api_version: 2
+  ssl: false
+  host: homeassistant
+  port: 8096
+  token: 1gqxzEV5NUIe5DWos7Yn1uvUoNUpqyx9cFWdIHkqfbrlNPXB825AZEOUGdJu8OoBZXrvIP4qRYGUgibfTYoB3A==
+  organization: homeassistant
+  bucket: data
+  tags:
+    source: HA
+  tags_attributes:
+    - friendly_name
+  default_measurement: units
+  precision: s
+  exclude:
+    entities:
+      - zone.home
+    domains:
+      - persistent_notification
+      - person
+  include:
+    domains:
+      - sensor
+      - binary_sensor
+      - sun
+    entities:
+      - weather.home
+
+
+#
+#recorder:
+#  purge_keep_days: 60
+#
+recorder:
+  auto_purge: true
+  purge_keep_days: 58
+  auto_repack: true
+  exclude:
+    domains:
+      - automation
+      - switch
+      - light
+      - update
+      - person
+      - zone
+      - weather
+      - schedule
+      - device_tracker
+      - media_player
+      - sun
+      - remote
+      - select
+      - number
+    entities:
+      - sensor.tasmota_energy_supply
+
+
+# automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+
+#lovelace:
+#  mode: yaml
