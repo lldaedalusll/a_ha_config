@@ -1,0 +1,53 @@
+###############################################################################
+#  SERVICE-SKRIPT: Feed-in Loss zurücksetzen (mit Bestätigung, modernisiert)
+###############################################################################
+script:
+  solar_feedin_loss_reset:
+    alias: "Einspeise-Verluste zurücksetzen"
+    icon: mdi:restore
+    mode: single
+
+    fields:
+      confirm:
+        name: "Bestätigung erforderlich"
+        description: "Muss 'ja', 'yes' oder 'y' sein, um wirklich zurückzusetzen."
+        example: "ja"
+        required: false
+        default: ""
+
+    sequence:
+      - choose:
+          #######################################################################
+          # Wenn Benutzer wirklich bestätigt (ja/yes/y) → Reset durchführen
+          #######################################################################
+          - conditions:
+              - condition: template
+                value_template: "{{ confirm | lower in ['ja','yes','y'] }}"
+            sequence:
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.saving_feedin_loss
+                data:
+                  value: 0
+
+              - service: logbook.log
+                data:
+                  name: "Solar Feed-in Loss Reset"
+                  message: "🔄 Einspeise-Verlust-Summe wurde auf 0 € zurückgesetzt."
+
+              - choose:
+                  - conditions: "{{ is_state('input_boolean.solar_feedin_debug','on') }}"
+                    sequence:
+                      - service: system_log.write
+                        data:
+                          level: warning
+                          message: "[Solar Feed-in Loss] Verlust-Summe manuell auf 0 € gesetzt (per Skript)."
+
+        #########################################################################
+        # Standardpfad: Keine oder falsche Bestätigung → Abbruchmeldung
+        #########################################################################
+        default:
+          - service: logbook.log
+            data:
+              name: "Solar Feed-in Loss Reset"
+              message: "❌ Rücksetzen abgebrochen (keine gültige Bestätigung)."
