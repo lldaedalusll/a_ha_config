@@ -1,0 +1,492 @@
+
+#
+# input_number: values the webhook json gets extracted into
+#
+
+input_number:
+  maxxicharge_battery_0_pvpower:
+    name: "maxxicharge.battery.0.pvpower"
+    min: 0
+    max: 100000
+    step: 1
+    mode: box
+
+  maxxicharge_battery_1_pvpower:
+    name: "maxxicharge.battery.1.pvpower"
+    min: 0
+    max: 100000
+    step: 1
+    mode: box
+
+  maxxicharge_ccu_input_power:
+    name: "maxxicharge.ccu.input_power"
+    min: 0
+    max: 100000
+    step: 1
+    mode: box
+
+  maxxicharge_ccu_output_power:
+    name: "maxxicharge.ccu.output_power"
+    min: 0
+    max: 100000
+    step: 1
+    mode: box
+
+  maxxicharge_battery_0_capacity:
+    name: "maxxicharge.battery.0.capacity"
+    min: 0
+    max: 50000
+    step: 1
+    mode: box
+
+  maxxicharge_battery_1_capacity:
+    name: "maxxicharge.battery.1.capacity"
+    min: 0
+    max: 50000
+    step: 1
+    mode: box
+
+  maxxicharge_battery_all_state_of_charge:
+    name: "maxxicharge.battery.all.state_of_charge"
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+
+  maxxicharge_ccu_0_temperature:
+    name: "maxxicharge.ccu.0.temperature"
+    min: -40
+    max: 100
+    step: 1
+    mode: box
+
+  maxxicharge_ccu_1_temperature:
+    name: "maxxicharge.ccu.1.temperature"
+    min: -40
+    max: 100
+    step: 1
+    mode: box
+
+  maxxicharge_ccu_0_output_power:
+    name: "maxxicharge.ccu.0.output_power"
+    min: 0
+    max: 100000
+    step: 1
+    mode: box
+
+  maxxicharge_ccu_1_output_power:
+    name: "maxxicharge.ccu.1.output_power"
+    min: 0
+    max: 100000
+    step: 1
+    mode: box
+
+
+#
+# automation: the webhook and the action on getting new data
+#
+
+automation:
+  - alias: "Maxxicharge Webhook Werte setzen"
+    trigger:
+      platform: webhook
+      webhook_id: maxxicharge_2IC7L1RdGWAvYKQgrBqLlz1scUKRSV
+    action:
+#      - service: persistent_notification.create
+#        data:
+#          message: "Webhook wurde erfolgreich ausgelöst!"
+#          title: "Webhook-Test"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_battery_0_pvpower
+        data:
+          value: "{{ trigger.json.batteriesInfo[0].pvPower }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_battery_1_pvpower
+        data:
+          value: "{{ trigger.json.batteriesInfo[1].pvPower }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_ccu_input_power
+        data:
+          value: "{{ trigger.json.PV_power_total }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_ccu_output_power
+        data:
+          value: "{{ trigger.json.ccuTotalPower }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_battery_0_capacity
+        data:
+          value: "{{ trigger.json.batteriesInfo[0].batteryCapacity }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_battery_1_capacity
+        data:
+          value: "{{ trigger.json.batteriesInfo[1].batteryCapacity }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_battery_all_state_of_charge
+        data:
+          value: "{{ trigger.json.SOC }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_ccu_0_temperature
+        data:
+          value: "{{ trigger.json.convertersInfo[0].ccuTemperature }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_ccu_1_temperature
+        data:
+          value: "{{ trigger.json.convertersInfo[1].ccuTemperature }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_ccu_0_output_power
+        data:
+          value: "{{ trigger.json.convertersInfo[0].ccuPower }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.maxxicharge_ccu_1_output_power
+        data:
+          value: "{{ trigger.json.convertersInfo[1].ccuPower }}"
+
+
+
+#
+# template sensoren: Langzeitspeicherung der Daten aus den input_value + einige daraus berechnete
+#
+
+template:
+  - sensor:
+
+    # ---------------------------------------------------
+    # Direkt aus input_number
+    # ---------------------------------------------------
+
+    - name: "maxxicharge.battery.0.pvPower"
+      unique_id: "maxxicharge_battery_0_pvPower"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:solar-power-variant
+      availability: >
+        {{ states('input_number.maxxicharge_battery_0_pvpower')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_battery_0_pvpower') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.battery.1.pvPower"
+      unique_id: "maxxicharge_battery_1_pvPower"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:solar-power-variant
+      availability: >
+        {{ states('input_number.maxxicharge_battery_1_pvpower')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_battery_1_pvpower') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.ccu.input_power"
+      unique_id: "maxxicharge.ccu.input_power"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:solar-power-variant
+      availability: >
+        {{ states('input_number.maxxicharge_ccu_input_power')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_ccu_input_power') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.ccu.output_power"
+      unique_id: "maxxicharge_ccu_output_power"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:power-plug-battery-outline
+      availability: >
+        {{ states('input_number.maxxicharge_ccu_output_power')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_ccu_output_power') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.battery.0.capacity"
+      unique_id: "maxxicharge_battery_0_capacity"
+      unit_of_measurement: "Wh"
+      device_class: energy
+      state_class: measurement
+      icon: mdi:battery-unknown
+      availability: >
+        {{ states('input_number.maxxicharge_battery_0_capacity')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_battery_0_capacity') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.battery.1.capacity"
+      unique_id: "maxxicharge_battery_1_capacity"
+      unit_of_measurement: "Wh"
+      device_class: energy
+      state_class: measurement
+      icon: mdi:battery-unknown
+      availability: >
+        {{ states('input_number.maxxicharge_battery_1_capacity')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_battery_1_capacity') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.battery.all.state_of_charge"
+      unique_id: "maxxicharge_battery_all_state_of_charge"
+      unit_of_measurement: "%"
+      device_class: battery
+      state_class: measurement
+      icon: mdi:battery-unknown
+      availability: >
+        {{ states('input_number.maxxicharge_battery_all_state_of_charge')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_battery_all_state_of_charge') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.ccu.0.temperature"
+      unique_id: "maxxicharge_ccu_0_temperatur"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:thermometer
+      availability: >
+        {{ states('input_number.maxxicharge_ccu_0_temperature')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_ccu_0_temperature') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.ccu.1.temperature"
+      unique_id: "maxxicharge_ccu_1_temperatur"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:thermometer
+      availability: >
+        {{ states('input_number.maxxicharge_ccu_1_temperature')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_ccu_1_temperature') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.ccu.0.output_power"
+      unique_id: "maxxicharge_ccu_0_output_power"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:power-plug-battery-outline
+      availability: >
+        {{ states('input_number.maxxicharge_ccu_0_output_power')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_ccu_0_output_power') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+    - name: "maxxicharge.ccu.1.output_power"
+      unique_id: "maxxicharge_ccu_1_output_power"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:power-plug-battery-outline
+      availability: >
+        {{ states('input_number.maxxicharge_ccu_1_output_power')
+           not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >
+        {% set val = states('input_number.maxxicharge_ccu_1_output_power') %}
+        {% if val in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ val | float(0) }}
+        {% endif %}
+
+
+    # ---------------------------------------------------
+    # Berechnete Sensoren
+    # ---------------------------------------------------
+
+    - name: "maxxicharge.battery.all.charge_power"
+      unique_id: "maxxicharge_battery_all_charge_power"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:power-plug-battery
+      state: >
+        {% set pv = states('input_number.maxxicharge_ccu_input_power') | float(0) %}
+        {% set ccu_out = states('input_number.maxxicharge_ccu_output_power') | float(0) %}
+        {% if pv == 0 and ccu_out == 0 %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ (pv - ccu_out) if (pv - ccu_out) > 0 else 0 }}
+        {% endif %}
+
+    - name: "maxxicharge.battery.all.discharge_power"
+      unique_id: "maxxicharge_battery_all_discharge_power"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:power-plug-battery-outline
+      state: >
+        {% set pv = states('input_number.maxxicharge_ccu_input_power') | float(0) %}
+        {% set ccu_out = states('input_number.maxxicharge_ccu_output_power') | float(0) %}
+        {% if pv == 0 and ccu_out == 0 %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ (ccu_out - pv) if (ccu_out - pv) > 0 else 0 }}
+        {% endif %}
+
+    - name: "maxxicharge.ccu.passthrough_power"
+      unique_id: "maxxicharge_ccu_passthrough_power"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:battery-off
+      state: >
+        {% set pv = states('input_number.maxxicharge_ccu_input_power') | float(0) %}
+        {% set charge = states('sensor.maxxicharge_battery_all_charge_power') | float(0) %}
+        {% if pv == 0 and charge == 0 %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ (pv - charge) if charge > 0 else pv }}
+        {% endif %}
+
+    - name: "maxxicharge.battery.all.capacity"
+      unique_id: "maxxicharge_battery_all_capacity"
+      unit_of_measurement: "Wh"
+      device_class: energy
+      state_class: measurement
+      icon: mdi:battery-unknown
+      state: >
+        {% set cap0 = states('input_number.maxxicharge_battery_0_capacity') | float(0) %}
+        {% set cap1 = states('input_number.maxxicharge_battery_1_capacity') | float(0) %}
+        {% if cap0 == 0 and cap1 == 0 %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ cap0 + cap1 }}
+        {% endif %}
+
+    - name: 'maxxicharge_ccu_output_power_sum_negated'
+      unique_id: maxxicharge_ccu_output_power_sum_negated
+      unit_of_measurement: kWh
+      state_class: total_increasing
+      device_class: energy
+      icon: mdi:flash
+      state: >
+        {% set s = states('sensor.maxxicharge_ccu_output_power_sum') %}
+        {% if s in ['unknown', 'unavailable', 'none', ''] %}
+          {{ states(this.entity_id) }}
+        {% else %}
+          {{ (s | float(0)) * -1 }}
+        {% endif %}
+
+    # percentage self used CCU output
+    - name: "power.perc_self_used_from_ccu"
+      unique_id: "power_perc_self_used_from_ccu"
+      state_class: measurement
+      unit_of_measurement: "%"
+      icon: mdi:percent-box
+      #
+      # wenn Gesamtverbrauch negativ <== CCU übernimmt 100% der Leistung
+      # dann
+      #   wenn Gesamtverbrauch * -1 geteilt durch CCU Output > 1 <== ungültiger Zustand (Zähler zeigt größeren negativen Wert als CCU Output ist) (verursacht durch ungleichmäßige Messzeitpunkte)
+      #                                                          <== die Zeitpunkte wurden nun angeglichen, weil nicht mehr Tasmota verwendet wird
+      #   dann
+      #     0
+      #   sonst
+      #     ( Gesamtverbrauch * -1 geteilt durch CCU Output ) * 100
+      #   ende
+      # sonst
+      #   100
+      # ende
+      #
+      state: >
+       {% set tac = states('sensor.shellypro3em_08f9e0e7a100_total_active_power') | float(0) %}
+       {% set cop = states('sensor.maxxicharge_ccu_output_power') | float(0) %}
+       {% if ( tac < 0 ) %}
+         {% if ( tac * -1 / cop ) > 1 %}
+           {{ 0 | float (0) }}
+         {% else %}
+           {{  ( 1 | float (0) - ( tac * -1 ) / cop ) * 100 | round(1) }}
+         {% endif %}
+       {% else %}
+         {{ 100 | float (0) }}
+       {% endif %}
+    
+    
+    # above percentage applied to battery output
+    - name: "power.self_used_from_ccu_bat_discharge"
+      unique_id: "power_self_used_from_ccu_bat_discharge"
+      device_class: power
+      state_class: measurement
+      icon: mdi:power-plug-battery-outline
+      unit_of_measurement: W
+      state: >
+        {% set su = states('sensor.power_perc_self_used_from_ccu') | float(0) %}
+        {% set bd = states('sensor.maxxicharge_battery_all_discharge_power') | float(0) %}
+        {{ (su / 100) * bd | round(3) }}
+    
+    
+    # above percentage applied to passthrough
+    - name: "power.self_used_from_ccu_passthrough"
+      unique_id: "power_self_used_from_ccu_passthrough"
+      device_class: power
+      state_class: measurement
+      icon: mdi:battery-off
+      unit_of_measurement: W
+      state: >
+        {% set su = states('sensor.power_perc_self_used_from_ccu') | float(0) %}
+        {% set pp = states('sensor.maxxicharge_ccu_passthrough_power') | float(0) %}
+        {{ (su / 100) * pp | round(3) }}
+    
