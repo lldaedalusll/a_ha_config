@@ -1,13 +1,13 @@
 sensor:
-  - platform: openhardwaremonitor
-  # host: icarus
-    host: 172.16.1.3
-    port: 8085
-
-  - platform: openhardwaremonitor
-  # host: daedalus
-    host: 172.16.1.2
-    port: 8085
+# - platform: openhardwaremonitor
+# # host: icarus
+#   host: 172.16.1.3
+#   port: 8085
+#
+# - platform: openhardwaremonitor
+# # host: daedalus
+#   host: 172.16.1.2
+#   port: 8085
 
   - name: "homeassistant.db.sqlite.size"
     unique_id: "homeassistant_db_sqlite_size"
