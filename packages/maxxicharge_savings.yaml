@@ -135,7 +135,9 @@ automation:
           last_ts: >-
             {% set t = states('input_datetime.last_bkw_update') %}
             {{ as_timestamp(t) if t not in ['unknown','unavailable','none',''] else as_timestamp(now()) }}
-          dt_h: "{{ (now_ts - last_ts) / 3600 }}"
+          raw_dt_s: "{{ now_ts - last_ts }}"
+          clamped_dt_s: "{{ [raw_dt_s, 30] | min }}"
+          dt_h: "{{ clamped_dt_s / 3600 }}"
           power_bat: "{{ states('sensor.power_self_used_from_ccu_bat_discharge') | float(0) }}"
           energy_bat: "{{ (power_bat * dt_h) / 1000 }}"
           price: "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
@@ -187,7 +189,9 @@ automation:
           last_ts: >-
             {% set t = states('input_datetime.last_bkw_update') %}
             {{ as_timestamp(t) if t not in ['unknown','unavailable','none',''] else as_timestamp(now()) }}
-          dt_h: "{{ (now_ts - last_ts) / 3600 }}"
+          raw_dt_s: "{{ now_ts - last_ts }}"
+          clamped_dt_s: "{{ [raw_dt_s, 30] | min }}"
+          dt_h: "{{ clamped_dt_s / 3600 }}"
           power_pv: "{{ states('sensor.power_self_used_from_ccu_passthrough') | float(0) }}"
           energy_pv: "{{ (power_pv * dt_h) / 1000 }}"
           price: "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
