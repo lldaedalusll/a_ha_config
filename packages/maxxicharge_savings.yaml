@@ -10,7 +10,7 @@
 ###############################################################################
 
 ###############################################################################
-#  INPUT NUMBERS (persistent sums) — original names preserved
+#  INPUT NUMBERS (persistent sums)
 ###############################################################################
 input_number:
   saving_pv_total:
@@ -71,7 +71,7 @@ input_datetime:
 
 
 ###############################################################################
-#  TEMPLATE SENSORS (display-only) — keep unique_ids as before
+#  TEMPLATE SENSORS (display-only)
 ###############################################################################
 template:
   - sensor:
