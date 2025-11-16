@@ -1,228 +1,183 @@
 ###############################################################################
-#  PACKAGE: Solar Savings – Fix mit Debug-Option (2025, Variante 2)
+#  PACKAGE: MaxxiCharge – Premium Savings System (B1+)
 ###############################################################################
-#  Änderungen:
-#   - Keine initial-Werte (Werte bleiben über Neustarts erhalten)
-#   - Neue Startup-Automation setzt Werte nur, wenn sie "unknown" sind
-#   - Debug-Logging optional über input_boolean.solar_savings_debug
+#  Features:
+#   - Ein einziges Script, das ALLE Berechnungen übernimmt
+#   - Batterienutzung & PV-Passthrough nutzen identische Code-Logik
+#   - 30-Sekunden-Zeit-Clamping
+#   - Startup-sicher (unknown→jetzt)
+#   - Debug-Logging über input_boolean
+#   - Persistente input_number-Summen
 ###############################################################################
 
-
 ###############################################################################
-#  INPUT NUMBERS (persistente Summen)
+#  INPUT NUMBERS
 ###############################################################################
 input_number:
-  saving_pv_total:
-    name: "Gesamt-Ersparnis PV"
+  maxxicharge_savings_total:
+    name: "Maxxicharge Gesamtersparnis"
     icon: mdi:currency-eur
     min: 0
     max: 1000000
     step: 0.000001
     unit_of_measurement: "€"
-    mode: box
 
-  saving_battery:
+  maxxicharge_savings_battery:
     name: "Ersparnis Batterie"
     icon: mdi:battery
     min: 0
     max: 1000000
     step: 0.000001
     unit_of_measurement: "€"
-    mode: box
 
-  saving_pv_passthrough:
-    name: "Ersparnis PV-Direktnutzung"
+  maxxicharge_savings_pv:
+    name: "Ersparnis PV-Direkt"
     icon: mdi:solar-power
     min: 0
     max: 1000000
     step: 0.000001
     unit_of_measurement: "€"
-    mode: box
-
 
 ###############################################################################
-#  DEBUG-SCHALTER (zum An/Aus-Schalten von Logging)
+#  DEBUG
 ###############################################################################
 input_boolean:
-  solar_savings_debug:
-    name: "Solar Savings Debug Logging"
+  maxxicharge_savings_debug:
+    name: "Maxxicharge Debug"
     icon: mdi:bug
 
-
 ###############################################################################
-#  HILFSSENSOREN
+#  TIMESTAMPS
 ###############################################################################
 input_datetime:
-  last_bkw_update:
-    name: "Letztes BKW-Update"
+  last_update_battery:
+    name: "Letztes Batterie-Update"
     has_date: true
     has_time: true
 
+  last_update_pv:
+    name: "Letztes PV-Update"
+    has_date: true
+    has_time: true
 
 ###############################################################################
-#  TEMPLATE-SENSOREN
+#  TEMPLATE-SENSOREN (zur Anzeige)
 ###############################################################################
 template:
   - sensor:
-      - name: "saving.pv_total"
-        unique_id: "saving_pv_total_template"
+      - name: "maxxicharge.savings_total"
+        unique_id: "maxxicharge_savings_total_template"
         unit_of_measurement: "€"
-        icon: mdi:currency-eur
-        state: "{{ states('input_number.saving_pv_total') | float(0) | round(2) }}"
+        state: "{{ states('input_number.maxxicharge_savings_total') | float(0) | round(2) }}"
 
-      - name: "saving.battery"
-        unique_id: "saving_battery_template"
+      - name: "maxxicharge.savings_battery"
+        unique_id: "maxxicharge_savings_battery_template"
         unit_of_measurement: "€"
-        icon: mdi:battery
-        state: "{{ states('input_number.saving_battery') | float(0) | round(2) }}"
+        state: "{{ states('input_number.maxxicharge_savings_battery') | float(0) | round(2) }}"
 
-      - name: "saving.pv_passthrough"
-        unique_id: "saving_pv_passthrough_template"
+      - name: "maxxicharge.savings_pv"
+        unique_id: "maxxicharge_savings_pv_template"
         unit_of_measurement: "€"
-        icon: mdi:solar-power
-        state: "{{ states('input_number.saving_pv_passthrough') | float(0) | round(2) }}"
+        state: "{{ states('input_number.maxxicharge_savings_pv') | float(0) | round(2) }}"
 
+###############################################################################
+#  MASTER-SKRIPT (Zentrale Logik)
+###############################################################################
+script:
+  maxxicharge_savings_core:
+    alias: "Maxxicharge Savings Core Logic"
+    mode: queued
+    fields:
+      source_power:
+        description: "Leistungswert in Watt"
+      last_update:
+        description: "Name des input_datetime der Quelle"
+      price_sensor:
+        description: "Preis pro kWh"
+      target_entity:
+        description: "input_number zum Aufsummieren"
+    sequence:
+      - variables:
+          now_ts: "{{ as_timestamp(now()) }}"
+          last_ts: >-
+            {% set t = states(last_update) %}
+            {{ as_timestamp(t) if t not in ['unknown','unavailable','none',''] else as_timestamp(now()) }}
+
+          raw_dt_s: "{{ now_ts - last_ts }}"
+          clamped_dt_s: "{{ [raw_dt_s, 30] | min }}"
+          dt_h: "{{ clamped_dt_s / 3600 }}"
+
+          power: "{{ source_power | float(0) }}"
+          energy_kwh: "{{ (power * dt_h) / 1000 }}"
+          price: "{{ states(price_sensor) | float(0) }}"
+          delta_eur: "{{ energy_kwh * price }}"
+
+      - choose:
+          - conditions: "{{ is_state('input_boolean.maxxicharge_savings_debug','on') }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: "Maxxicharge Savings"
+                  message: >
+                    🔧 Quelle={{ target_entity }},
+                    Power={{ power }} W,
+                    dt={{ dt_h | round(6) }} h,
+                    ΔE={{ energy_kwh | round(6) }} kWh,
+                    Δ€={{ delta_eur | round(6) }},
+                    Preis={{ price }}
+
+      - if:
+          - condition: template
+            value_template: "{{ delta_eur > 0 }}"
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: "{{ target_entity }}"
+            data:
+              value: >
+                {{ (states(target_entity)|float + delta_eur) | round(6) }}
+
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.maxxicharge_savings_total
+            data:
+              value: >
+                {{ (states('input_number.maxxicharge_savings_total')|float + delta_eur) | round(6) }}
+
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: "{{ last_update }}"
+        data:
+          timestamp: "{{ now_ts }}"
 
 ###############################################################################
 #  AUTOMATIONEN
 ###############################################################################
-automation:
 
-  ###########################################################################
-  # 🟢 0️⃣ Initialisierung bei Systemstart
-  ###########################################################################
-  - alias: "Ersparnis-Zähler initialisieren"
-    id: init_solar_savings
-    trigger:
-      - platform: homeassistant
-        event: start
-    condition:
-      - condition: or
-        conditions:
-          - condition: template
-            value_template: "{{ states('input_number.saving_pv_total') in ['unknown', 'unavailable', 'none'] }}"
-          - condition: template
-            value_template: "{{ states('input_number.saving_battery') in ['unknown', 'unavailable', 'none'] }}"
-          - condition: template
-            value_template: "{{ states('input_number.saving_pv_passthrough') in ['unknown', 'unavailable', 'none'] }}"
-    action:
-      - service: input_number.set_value
-        target:
-          entity_id:
-            - input_number.saving_pv_total
-            - input_number.saving_battery
-            - input_number.saving_pv_passthrough
-        data:
-          value: 0
-      - service: logbook.log
-        data:
-          name: "Solar Savings Init"
-          message: "Initialisiert alle Ersparnis-Zähler auf 0 (erstmaliger Start)"
+# 🟢 Batterie
+- alias: "Maxxicharge Savings – Batterie"
+  id: maxxicharge_savings_battery
+  trigger:
+    - platform: state
+      entity_id: sensor.power_self_used_from_ccu_bat_discharge
+  action:
+    - service: script.maxxicharge_savings_core
+      data:
+        source_power: "{{ states('sensor.power_self_used_from_ccu_bat_discharge') }}"
+        last_update: "input_datetime.last_update_battery"
+        price_sensor: "sensor.strom_preis_pro_kwh"
+        target_entity: "input_number.maxxicharge_savings_battery"
 
-
-  ###########################################################################
-  # 1️⃣ Einsparung Batterie – sofortige Aufsummierung
-  ###########################################################################
-  - alias: "Einsparung Batterie sofort aufsummieren"
-    id: solar_savings_increment_battery
-    mode: queued
-    trigger:
-      - platform: state
-        entity_id: sensor.power_self_used_from_ccu_bat_discharge
-    action:
-      - variables:
-          now_ts: "{{ as_timestamp(now()) }}"
-          last_ts: >-
-            {% set t = states('input_datetime.last_bkw_update') %}
-            {{ as_timestamp(t) if t not in ['unknown','unavailable','none',''] else as_timestamp(now()) }}
-          raw_dt_s: "{{ now_ts - last_ts }}"
-          clamped_dt_s: "{{ [raw_dt_s, 30] | min }}"
-          dt_h: "{{ clamped_dt_s / 3600 }}"
-          power_bat: "{{ states('sensor.power_self_used_from_ccu_bat_discharge') | float(0) }}"
-          energy_bat: "{{ (power_bat * dt_h) / 1000 }}"
-          price: "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
-          delta_bat_eur: "{{ energy_bat * price }}"
-      - choose:
-          - conditions: "{{ is_state('input_boolean.solar_savings_debug','on') }}"
-            sequence:
-              - service: logbook.log
-                data:
-                  name: "Solar Savings"
-                  message: >
-                    🔋 Batterie-Update: power={{ power_bat }} W, dt={{ dt_h | round(6) }} h,
-                    Δ={{ delta_bat_eur | round(6) }} €, price={{ price }} €/kWh
-      - if:
-          - condition: template
-            value_template: "{{ delta_bat_eur | float(0) > 0 }}"
-        then:
-          - service: input_number.set_value
-            target:
-              entity_id: input_number.saving_battery
-            data:
-              value: >
-                {{ (states('input_number.saving_battery') | float(0) + delta_bat_eur) | round(6) }}
-          - service: input_number.set_value
-            target:
-              entity_id: input_number.saving_pv_total
-            data:
-              value: >
-                {{ (states('input_number.saving_pv_total') | float(0) + delta_bat_eur) | round(6) }}
-      - service: input_datetime.set_datetime
-        target:
-          entity_id: input_datetime.last_bkw_update
-        data:
-          timestamp: "{{ as_timestamp(now()) }}"
-
-
-  ###########################################################################
-  # 2️⃣ Einsparung PV-Direktnutzung – sofortige Aufsummierung
-  ###########################################################################
-  - alias: "Einsparung PV Passthrough sofort aufsummieren"
-    id: solar_savings_increment_pv_passthrough
-    mode: queued
-    trigger:
-      - platform: state
-        entity_id: sensor.power_self_used_from_ccu_passthrough
-    action:
-      - variables:
-          now_ts: "{{ as_timestamp(now()) }}"
-          last_ts: >-
-            {% set t = states('input_datetime.last_bkw_update') %}
-            {{ as_timestamp(t) if t not in ['unknown','unavailable','none',''] else as_timestamp(now()) }}
-          raw_dt_s: "{{ now_ts - last_ts }}"
-          clamped_dt_s: "{{ [raw_dt_s, 30] | min }}"
-          dt_h: "{{ clamped_dt_s / 3600 }}"
-          power_pv: "{{ states('sensor.power_self_used_from_ccu_passthrough') | float(0) }}"
-          energy_pv: "{{ (power_pv * dt_h) / 1000 }}"
-          price: "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
-          delta_pv_eur: "{{ energy_pv * price }}"
-      - choose:
-          - conditions: "{{ is_state('input_boolean.solar_savings_debug','on') }}"
-            sequence:
-              - service: logbook.log
-                data:
-                  name: "Solar Savings"
-                  message: >
-                    ☀️ PV Passthrough: power={{ power_pv }} W, dt={{ dt_h | round(6) }} h,
-                    Δ={{ delta_pv_eur | round(6) }} €, price={{ price }} €/kWh
-      - if:
-          - condition: template
-            value_template: "{{ delta_pv_eur | float(0) > 0 }}"
-        then:
-          - service: input_number.set_value
-            target:
-              entity_id: input_number.saving_pv_passthrough
-            data:
-              value: >
-                {{ (states('input_number.saving_pv_passthrough') | float(0) + delta_pv_eur) | round(6) }}
-          - service: input_number.set_value
-            target:
-              entity_id: input_number.saving_pv_total
-            data:
-              value: >
-                {{ (states('input_number.saving_pv_total') | float(0) + delta_pv_eur) | round(6) }}
-      - service: input_datetime.set_datetime
-        target:
-          entity_id: input_datetime.last_bkw_update
-        data:
-          timestamp: "{{ as_timestamp(now()) }}"
+# ☀️ PV
+- alias: "Maxxicharge Savings – PV"
+  id: maxxicharge_savings_pv
+  trigger:
+    - platform: state
+      entity_id: sensor.power_self_used_from_ccu_passthrough
+  action:
+    - service: script.maxxicharge_savings_core
+      data:
+        source_power: "{{ states('sensor.power_self_used_from_ccu_passthrough') }}"
+        last_update: "input_datetime.last_update_pv"
+        price_sensor: "sensor.strom_preis_pro_kwh"
+        target_entity: "input_number.maxxicharge_savings_pv"
