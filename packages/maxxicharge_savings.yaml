@@ -1,13 +1,17 @@
 ###############################################################################
-#  PACKAGE: Solar Savings – Premium B1 Corrected (preserve original entity names)
+#  PACKAGE: Maxxicharge – Premium B1 with separate timestamps (final)
 ###############################################################################
-# Notes:
-# - All original entity names preserved.
-# - Central script called by automations, passes trigger timestamp.
-# - 30s clamp + 600s restart protection.
-# - Debug logging unchanged.
+# Features:
+# - Central script for integration (30s clamp, 600s restart protection)
+# - Separate timestamps for battery and PV to avoid race conditions
+# - Updates original last_bkw_update for compatibility
+# - Debug logging via input_boolean.solar_savings_debug
+# - Preserves all original input_number and sensor entity names (no renames)
 ###############################################################################
 
+###############################################################################
+#  INPUT NUMBERS (persistent sums) — original names preserved
+###############################################################################
 input_number:
   saving_pv_total:
     name: "Gesamt-Ersparnis PV"
@@ -36,17 +40,39 @@ input_number:
     unit_of_measurement: "€"
     mode: box
 
+
+###############################################################################
+#  DEBUG SWITCH (keeps original name)
+###############################################################################
 input_boolean:
   solar_savings_debug:
     name: "Solar Savings Debug Logging"
     icon: mdi:bug
 
+
+###############################################################################
+#  TIMESTAMPS
+###############################################################################
 input_datetime:
   last_bkw_update:
     name: "Letztes BKW-Update"
     has_date: true
     has_time: true
 
+  last_bkw_update_battery:
+    name: "Letztes BKW-Update Batterie"
+    has_date: true
+    has_time: true
+
+  last_bkw_update_pv:
+    name: "Letztes BKW-Update PV"
+    has_date: true
+    has_time: true
+
+
+###############################################################################
+#  TEMPLATE SENSORS (display-only) — keep unique_ids as before
+###############################################################################
 template:
   - sensor:
       - name: "saving.pv_total"
@@ -67,26 +93,67 @@ template:
         icon: mdi:solar-power
         state: "{{ states('input_number.saving_pv_passthrough') | float(0) | round(2) }}"
 
+
+###############################################################################
+#  INITIALIZATION AT STARTUP (preserve original behaviour)
+###############################################################################
+automation:
+  - alias: "Ersparnis-Zähler initialisieren"
+    id: init_solar_savings
+    trigger:
+      - platform: homeassistant
+        event: start
+    condition:
+      - condition: or
+        conditions:
+          - condition: template
+            value_template: "{{ states('input_number.saving_pv_total') in ['unknown', 'unavailable', 'none'] }}"
+          - condition: template
+            value_template: "{{ states('input_number.saving_battery') in ['unknown', 'unavailable', 'none'] }}"
+          - condition: template
+            value_template: "{{ states('input_number.saving_pv_passthrough') in ['unknown', 'unavailable', 'none'] }}"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id:
+            - input_number.saving_pv_total
+            - input_number.saving_battery
+            - input_number.saving_pv_passthrough
+        data:
+          value: 0
+      - service: logbook.log
+        data:
+          name: "Solar Savings Init"
+          message: "Initialisiert alle Ersparnis-Zähler auf 0 (erstmaliger Start)"
+
+
+###############################################################################
+#  CENTRAL SCRIPT: integrate_solar_savings_core
+#  - takes trigger timestamp (seconds), source power (W), price sensor, and target eur input_number
+#  - applies 30s clamp and 600s restart-safety (soft)
+###############################################################################
 script:
   integrate_solar_savings_core:
     alias: "Integrate Solar Savings (core)"
-    description: "Central integration logic with clamp+restart protection."
+    description: "Central integration logic with clamp+restart protection. Called by automations."
     fields:
       source_power:
-        description: "Watt value for power"
-      last_triggered_ts:
-        description: "Trigger timestamp"
+        description: "Watt value (number) or entity string (not used here)"
+      trigger_ts:
+        description: "Trigger timestamp in seconds (as number)"
       price_sensor:
-        description: "Price sensor"
-      kwh_input:
-        description: "Target kWh input_number (kept for compatibility)"
+        description: "Price per kWh sensor entity_id"
       eur_input:
-        description: "EUR input_number to increment"
+        description: "input_number entity_id to increment in €"
+      update_ts_name:
+        description: "input_datetime entity_id to update for this source"
     sequence:
       - variables:
           now_ts: "{{ as_timestamp(now()) }}"
-          trigger_ts: "{{ last_triggered_ts | float(0) }}"
-          raw_dt_s: "{{ (now_ts - trigger_ts) | float(0) }}"
+          trig_ts: "{{ trigger_ts | float(0) }}"
+          raw_dt_s: "{{ (now_ts - trig_ts) | float(0) }}"
+
+          # Restart protection: treat very large gaps as zero (soft)
           clamped_dt_s: >-
             {% set r = raw_dt_s | float(0) %}
             {% if r > 600 %}
@@ -94,7 +161,9 @@ script:
             {% else %}
               {{ [r, 30] | min }}
             {% endif %}
+
           dt_h: "{{ clamped_dt_s / 3600 }}"
+
           power: "{{ source_power | float(0) }}"
           energy_kwh: "{{ (power * dt_h) / 1000 }}"
           price_per_kwh: "{{ states(price_sensor) | float(0) }}"
@@ -107,9 +176,8 @@ script:
                 data:
                   name: "Solar Savings (core)"
                   message: >
-                    power={{ power }} W, dt={{ dt_h | round(6) }} h,
-                    energy={{ energy_kwh | round(6) }} kWh,
-                    Δ={{ delta_eur | round(6) }} €, price={{ price_per_kwh }}
+                    source={{ update_ts_name }}, power={{ power }} W, dt={{ dt_h | round(6) }} h,
+                    energy_kWh={{ energy_kwh | round(6) }}, delta_EUR={{ delta_eur | round(6) }}, price={{ price_per_kwh }}
 
       - if:
           - condition: template
@@ -131,12 +199,21 @@ script:
 
       - service: input_datetime.set_datetime
         target:
+          entity_id: "{{ update_ts_name }}"
+        data:
+          timestamp: "{{ now_ts }}"
+
+      - service: input_datetime.set_datetime
+        target:
           entity_id: input_datetime.last_bkw_update
         data:
           timestamp: "{{ now_ts }}"
 
-automation:
-  - alias: "Einsparung Batterie sofort aufsummieren (core)"
+
+###############################################################################
+#  AUTOMATION: Battery savings (calls core script)
+###############################################################################
+  - alias: "Einsparung Batterie sofort aufsummieren"
     id: solar_savings_increment_battery
     mode: queued
     trigger:
@@ -146,12 +223,16 @@ automation:
       - service: script.integrate_solar_savings_core
         data:
           source_power: "{{ states('sensor.power_self_used_from_ccu_bat_discharge') }}"
-          last_triggered_ts: "{{ as_timestamp(trigger.to_state.last_changed) }}"
+          trigger_ts: "{{ as_timestamp(trigger.to_state.last_changed) }}"
           price_sensor: "sensor.strom_preis_pro_kwh"
-          kwh_input: "input_number.saving_battery"
           eur_input: "input_number.saving_battery"
+          update_ts_name: "input_datetime.last_bkw_update_battery"
 
-  - alias: "Einsparung PV Passthrough sofort aufsummieren (core)"
+
+###############################################################################
+#  AUTOMATION: PV passthrough savings (calls core script)
+###############################################################################
+  - alias: "Einsparung PV Passthrough sofort aufsummieren"
     id: solar_savings_increment_pv_passthrough
     mode: queued
     trigger:
@@ -161,7 +242,7 @@ automation:
       - service: script.integrate_solar_savings_core
         data:
           source_power: "{{ states('sensor.power_self_used_from_ccu_passthrough') }}"
-          last_triggered_ts: "{{ as_timestamp(trigger.to_state.last_changed) }}"
+          trigger_ts: "{{ as_timestamp(trigger.to_state.last_changed) }}"
           price_sensor: "sensor.strom_preis_pro_kwh"
-          kwh_input: "input_number.saving_pv_passthrough"
           eur_input: "input_number.saving_pv_passthrough"
+          update_ts_name: "input_datetime.last_bkw_update_pv"
