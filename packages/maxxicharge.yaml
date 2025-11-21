@@ -367,11 +367,7 @@ template:
         {% set pv = states('input_number.maxxicharge_ccu_input_power') | float(0) %}
         {% set ccu_out = states('input_number.maxxicharge_ccu_output_power') | float(0) %}
         {% set cp = pv - ccu_out %}
-        {% if pv == 0 and ccu_out == 0 %}
-          {{ states(this.entity_id) }}
-        {% else %}
-          {{ cp if cp > 0 else 0 }}
-        {% endif %}
+        {{ cp if cp > 0 else 0 }}
 
     - name: "maxxicharge.battery.all.discharge_power"
       unique_id: "maxxicharge_battery_all_discharge_power"
@@ -382,12 +378,8 @@ template:
       state: >
         {% set pv = states('input_number.maxxicharge_ccu_input_power') | float(0) %}
         {% set ccu_out = states('input_number.maxxicharge_ccu_output_power') | float(0) %}
-        {% set dcp = ccu_out - pv %}
-        {% if pv == 0 and ccu_out == 0 %}
-          {{ states(this.entity_id) }}
-        {% else %}
-          {{ dcp if dcp > 0 else 0 }}
-        {% endif %}
+        {% set dp = ccu_out - pv %}
+        {{ dp if dp > 0 else 0 }}
 
     - name: "maxxicharge.ccu.passthrough_power"
       unique_id: "maxxicharge_ccu_passthrough_power"
@@ -399,11 +391,7 @@ template:
         {% set pv = states('input_number.maxxicharge_ccu_input_power') | float(0) %}
         {% set charge = states('sensor.maxxicharge_battery_all_charge_power') | float(0) %}
         {% set pt = pv - charge %}
-        {% if pv == 0 and charge == 0 %}
-          {{ states(this.entity_id) }}
-        {% else %}
-          {{ pt if pt > 0 else 0 }}
-        {% endif %}
+        {{ pt if pt > 0 else 0 }}
 
     - name: "maxxicharge.battery.all.capacity"
       unique_id: "maxxicharge_battery_all_capacity"
