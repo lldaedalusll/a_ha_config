@@ -171,9 +171,6 @@ template:
       device_class: power
       state_class: measurement
       icon: mdi:solar-power-variant
-      availability: >
-        {{ states('input_number.maxxicharge_battery_0_pvpower')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_battery_0_pvpower') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -188,9 +185,6 @@ template:
       device_class: power
       state_class: measurement
       icon: mdi:solar-power-variant
-      availability: >
-        {{ states('input_number.maxxicharge_battery_1_pvpower')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_battery_1_pvpower') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -205,9 +199,6 @@ template:
       device_class: power
       state_class: measurement
       icon: mdi:solar-power-variant
-      availability: >
-        {{ states('input_number.maxxicharge_ccu_input_power')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_ccu_input_power') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -222,9 +213,6 @@ template:
       device_class: power
       state_class: measurement
       icon: mdi:power-plug-battery-outline
-      availability: >
-        {{ states('input_number.maxxicharge_ccu_output_power')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_ccu_output_power') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -239,9 +227,6 @@ template:
       device_class: energy
       state_class: measurement
       icon: mdi:battery-unknown
-      availability: >
-        {{ states('input_number.maxxicharge_battery_0_capacity')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_battery_0_capacity') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -256,9 +241,6 @@ template:
       device_class: energy
       state_class: measurement
       icon: mdi:battery-unknown
-      availability: >
-        {{ states('input_number.maxxicharge_battery_1_capacity')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_battery_1_capacity') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -273,9 +255,6 @@ template:
       device_class: battery
       state_class: measurement
       icon: mdi:battery-unknown
-      availability: >
-        {{ states('input_number.maxxicharge_battery_all_state_of_charge')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_battery_all_state_of_charge') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -290,9 +269,6 @@ template:
       device_class: temperature
       state_class: measurement
       icon: mdi:thermometer
-      availability: >
-        {{ states('input_number.maxxicharge_ccu_0_temperature')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_ccu_0_temperature') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -307,9 +283,6 @@ template:
       device_class: temperature
       state_class: measurement
       icon: mdi:thermometer
-      availability: >
-        {{ states('input_number.maxxicharge_ccu_1_temperature')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_ccu_1_temperature') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -324,9 +297,6 @@ template:
       device_class: power
       state_class: measurement
       icon: mdi:power-plug-battery-outline
-      availability: >
-        {{ states('input_number.maxxicharge_ccu_0_output_power')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_ccu_0_output_power') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
@@ -341,9 +311,6 @@ template:
       device_class: power
       state_class: measurement
       icon: mdi:power-plug-battery-outline
-      availability: >
-        {{ states('input_number.maxxicharge_ccu_1_output_power')
-           not in ['unknown', 'unavailable', 'none', ''] }}
       state: >
         {% set val = states('input_number.maxxicharge_ccu_1_output_power') %}
         {% if val in ['unknown', 'unavailable', 'none', ''] %}
