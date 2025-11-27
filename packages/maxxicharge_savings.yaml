@@ -1,13 +1,11 @@
 ###############################################################################
-#  PACKAGE: Solar Savings – Premium Version (2025, Variante B1)
+#  PACKAGE: Solar Savings – 2025 (Variante mit ausgelagerter Logik)
 ###############################################################################
-#  Features:
-#   - 30s Clamping für beide Leistungen
-#   - Persistente Summen ohne Reset
-#   - Startup-Schutz, setzt nur zurück wenn unknown
-#   - Zentrale Berechnungslogik ausgelagert in script.solar_savings_add
-#   - Keine Namensänderungen
-#   - Debug-Schalter
+#  Änderungen:
+#   - Beide Aufsummier-Automationen verwenden jetzt EIN gemeinsames Script
+#   - Debug-Logging bleibt vollständig erhalten
+#   - Schutz vor großen Zeitdeltas bleibt erhalten (clamped to 30s)
+#   - Gesamte Datei neu generiert
 ###############################################################################
 
 
@@ -53,7 +51,7 @@ input_boolean:
 
 
 ###############################################################################
-#  TIMESTAMP FÜR CLAMPING
+#  HILFSSENSOREN
 ###############################################################################
 input_datetime:
   last_bkw_update:
@@ -87,35 +85,34 @@ template:
 
 
 ###############################################################################
-#  SCRIPT – Zentrale Berechnungslogik
+#  SCRIPT: Gemeinsame Berechnungslogik PV + Batterie
 ###############################################################################
 script:
-  solar_savings_add:
-    alias: "Solar Savings – Add Amount"
-    mode: parallel
+  solar_savings_update:
+    alias: "Solar Savings – Gemeinsame Logik"
+    description: "Berechnet die Einsparungen anhand Leistung, Zeitdelta und Preis"
     fields:
+      power_entity:
+        description: "Sensor-Entity, die die aktuelle Leistung liefert"
       target_input:
-        description: "Ziel-Input-Number"
-      amount:
-        description: "Euro-Wert"
+        description: "input_number, das erhöht werden soll"
+      debug_label:
+        description: "Text/Emoji für Debug-Log"
     sequence:
-      - if:
-          - condition: template
-            value_template: "{{ amount | float(0) > 0 }}"
-        then:
-          - service: input_number.set_value
-            target:
-              entity_id: "{{ target_input }}"
-            data:
-              value: >
-                {{ (states(target_input) | float(0) + amount | float(0)) | round(6) }}
+      - variables:
+          now_ts: "{{ as_timestamp(now()) }}"
+          last_ts: >-
+            {% set t = states('input_datetime.last_bkw_update') %}
+            {{ as_timestamp(t) if t not in ['unknown','unavailable','none',''] else as_timestamp(now()) }}
+          dt_sec: "{{ now_ts - last_ts }}"
+          dt_sec_clamped: "{{ min(dt_sec, 30) }}"
+          dt_h: "{{ dt_sec_clamped / 3600 }}"
 
-          - service: input_number.set_value
-            target:
-              entity_id: input_number.saving_pv_total
-            data:
-              value: >
-                {{ (states('input_number.saving_pv_total') | float(0) + amount | float(0)) | round(6) }}
+          power: "{{ states(power_entity) | float(0) }}"
+          energy: "{{ (power * dt_h) / 1000 }}"
+          price: "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
+
+          delta_eur: "{{ energy * price }}"
 
       - choose:
           - conditions: "{{ is_state('input_boolean.solar_savings_debug','on') }}"
@@ -124,13 +121,38 @@ script:
                 data:
                   name: "Solar Savings"
                   message: >
-                    ➕ Add: {{ amount | float(0) }} € → {{ target_input }}
+                    {{ debug_label }}:
+                    power={{ power }} W,
+                    dt={{ dt_h | round(6) }} h,
+                    Δ={{ delta_eur | round(6) }} €,
+                    price={{ price }} €/kWh
 
+      - if:
+          - condition: template
+            value_template: "{{ delta_eur > 0 }}"
+        then:
+          # Spezifischer Sparzähler
+          - service: input_number.set_value
+            target:
+              entity_id: "{{ target_input }}"
+            data:
+              value: >
+                {{ (states(target_input) | float(0) + delta_eur) | round(6) }}
+
+          # Gesamtsumme PV
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.saving_pv_total
+            data:
+              value: >
+                {{ (states('input_number.saving_pv_total') | float(0) + delta_eur) | round(6) }}
+
+      # Update Timestamp
       - service: input_datetime.set_datetime
         target:
           entity_id: input_datetime.last_bkw_update
         data:
-          timestamp: "{{ as_timestamp(now()) }}"
+          timestamp: "{{ now_ts }}"
 
 
 ###############################################################################
@@ -139,7 +161,7 @@ script:
 automation:
 
   ###########################################################################
-  # 0️⃣ Initialisierung bei Systemstart (nur wenn unknown)
+  # 🟢 0️⃣ Initialisierung bei Systemstart
   ###########################################################################
   - alias: "Ersparnis-Zähler initialisieren"
     id: init_solar_savings
@@ -150,11 +172,11 @@ automation:
       - condition: or
         conditions:
           - condition: template
-            value_template: "{{ states('input_number.saving_pv_total') in ['unknown','unavailable','none'] }}"
+            value_template: "{{ states('input_number.saving_pv_total') in ['unknown', 'unavailable', 'none'] }}"
           - condition: template
-            value_template: "{{ states('input_number.saving_battery') in ['unknown','unavailable','none'] }}"
+            value_template: "{{ states('input_number.saving_battery') in ['unknown', 'unavailable', 'none'] }}"
           - condition: template
-            value_template: "{{ states('input_number.saving_pv_passthrough') in ['unknown','unavailable','none'] }}"
+            value_template: "{{ states('input_number.saving_pv_passthrough') in ['unknown', 'unavailable', 'none'] }}"
     action:
       - service: input_number.set_value
         target:
@@ -167,11 +189,11 @@ automation:
       - service: logbook.log
         data:
           name: "Solar Savings Init"
-          message: "Initialisierung erfolgte (unknown → 0)"
+          message: "Initialisiert alle Ersparnis-Zähler auf 0 (erstmaliger Start)"
 
 
   ###########################################################################
-  # 1️⃣ Einsparung BATTERIE
+  # 1️⃣ Einsparung Batterie – nutzt gemeinsame Logik
   ###########################################################################
   - alias: "Einsparung Batterie sofort aufsummieren"
     id: solar_savings_increment_battery
@@ -180,25 +202,15 @@ automation:
       - platform: state
         entity_id: sensor.power_self_used_from_ccu_bat_discharge
     action:
-      - variables:
-          now_ts: "{{ as_timestamp(now()) }}"
-          lt: "{{ states('input_datetime.last_bkw_update') }}"
-          last_ts: "{{ as_timestamp(lt) if lt not in ['unknown','unavailable','none',''] else now_ts }}"
-          dt_raw_s: "{{ now_ts - last_ts }}"
-          dt_clamped_s: "{{ [dt_raw_s, 30] | min }}"
-          dt_h: "{{ dt_clamped_s / 3600 }}"
-          power: "{{ states('sensor.power_self_used_from_ccu_bat_discharge') | float(0) }}"
-          energy_kwh: "{{ (power * dt_h) / 1000 }}"
-          price: "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
-          delta_eur: "{{ energy_kwh * price }}"
-      - service: script.solar_savings_add
+      - service: script.solar_savings_update
         data:
+          power_entity: sensor.power_self_used_from_ccu_bat_discharge
           target_input: input_number.saving_battery
-          amount: "{{ delta_eur }}"
+          debug_label: "🔋 Batterie"
 
 
   ###########################################################################
-  # 2️⃣ Einsparung PV-DIREKTNUTZUNG
+  # 2️⃣ Einsparung PV-Direktnutzung – nutzt gemeinsame Logik
   ###########################################################################
   - alias: "Einsparung PV Passthrough sofort aufsummieren"
     id: solar_savings_increment_pv_passthrough
@@ -207,18 +219,8 @@ automation:
       - platform: state
         entity_id: sensor.power_self_used_from_ccu_passthrough
     action:
-      - variables:
-          now_ts: "{{ as_timestamp(now()) }}"
-          lt: "{{ states('input_datetime.last_bkw_update') }}"
-          last_ts: "{{ as_timestamp(lt) if lt not in ['unknown','unavailable','none',''] else now_ts }}"
-          dt_raw_s: "{{ now_ts - last_ts }}"
-          dt_clamped_s: "{{ [dt_raw_s, 30] | min }}"
-          dt_h: "{{ dt_clamped_s / 3600 }}"
-          power: "{{ states('sensor.power_self_used_from_ccu_passthrough') | float(0) }}"
-          energy_kwh: "{{ (power * dt_h) / 1000 }}"
-          price: "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
-          delta_eur: "{{ energy_kwh * price }}"
-      - service: script.solar_savings_add
+      - service: script.solar_savings_update
         data:
+          power_entity: sensor.power_self_used_from_ccu_passthrough
           target_input: input_number.saving_pv_passthrough
-          amount: "{{ delta_eur }}"
+          debug_label: "☀️ PV Passthrough"
