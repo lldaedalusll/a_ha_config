@@ -105,7 +105,7 @@ script:
             {% set t = states('input_datetime.last_bkw_update') %}
             {{ as_timestamp(t) if t not in ['unknown','unavailable','none',''] else as_timestamp(now()) }}
           dt_sec: "{{ now_ts - last_ts }}"
-          dt_sec_clamped: "{{ min(dt_sec, 30) }}"
+          dt_sec_clamped: "{{ min(dt_sec, 15) }}"
           dt_h: "{{ dt_sec_clamped / 3600 }}"
 
           power: "{{ states(power_entity) | float(0) }}"
