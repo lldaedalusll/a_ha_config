@@ -225,7 +225,7 @@ template:
       unique_id: "maxxicharge_battery_0_capacity"
       unit_of_measurement: "Wh"
       device_class: energy
-      state_class: measurement
+      state_class: total
       icon: mdi:battery-unknown
       state: >
         {% set val = states('input_number.maxxicharge_battery_0_capacity') %}
@@ -239,7 +239,7 @@ template:
       unique_id: "maxxicharge_battery_1_capacity"
       unit_of_measurement: "Wh"
       device_class: energy
-      state_class: measurement
+      state_class: total
       icon: mdi:battery-unknown
       state: >
         {% set val = states('input_number.maxxicharge_battery_1_capacity') %}
@@ -364,7 +364,7 @@ template:
       unique_id: "maxxicharge_battery_all_capacity"
       unit_of_measurement: "Wh"
       device_class: energy
-      state_class: measurement
+      state_class: total
       icon: mdi:battery-unknown
       state: >
         {% set cap0 = states('input_number.maxxicharge_battery_0_capacity') | float(0) %}
@@ -378,7 +378,7 @@ template:
     - name: 'maxxicharge_ccu_output_power_sum_negated'
       unique_id: maxxicharge_ccu_output_power_sum_negated
       unit_of_measurement: kWh
-      state_class: total_increasing
+      state_class: total
       device_class: energy
       icon: mdi:flash
       state: >
@@ -410,17 +410,20 @@ template:
       # ende
       #
       state: >
-       {% set tac = states('sensor.shellypro3em_08f9e0e7a100_total_active_power') | float(0) %}
-       {% set cop = states('sensor.maxxicharge_ccu_output_power') | float(0) %}
-       {% if ( tac < 0 ) %}
-         {% if ( tac * -1 / cop ) > 1 %}
-           {{ 0 | float (0) }}
-         {% else %}
-           {{  ( 1 | float (0) - ( tac * -1 ) / cop ) * 100 | round(1) }}
-         {% endif %}
-       {% else %}
-         {{ 100 | float (0) }}
-       {% endif %}
+        {% set tac = states('sensor.shellypro3em_08f9e0e7a100_total_active_power') | float(0) %}
+        {% set cop = states('sensor.maxxicharge_ccu_output_power') | float(0) %}
+
+        {% if cop <= 0 %}
+          0
+        {% elif tac < 0 %}
+          {% if (tac * -1 / cop) > 1 %}
+            0
+          {% else %}
+            {{ ((1 - (tac * -1 / cop)) * 100) | round(1) }}
+          {% endif %}
+        {% else %}
+          100
+        {% endif %}
     
     
     # above percentage applied to battery output
