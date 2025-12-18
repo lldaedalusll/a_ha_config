@@ -81,7 +81,78 @@ template:
         unique_id: "saving_pv_passthrough_template"
         unit_of_measurement: "€"
         icon: mdi:solar-power
-        state: "{{ states('input_number.saving_pv_passthrough') | float(-9999) | round(2) }}"
+        state: "{{ states('input_number.saving_pv_passthrough') | float(0) | round(2) }}"
+
+
+###############################################################################
+#  SCRIPT: Gemeinsame Berechnungslogik PV + Batterie
+###############################################################################
+script:
+  solar_savings_update:
+    alias: "Solar Savings – Gemeinsame Logik"
+    description: "Berechnet die Einsparungen anhand Leistung, Zeitdelta und Preis"
+    fields:
+      power_entity:
+        description: "Sensor-Entity, die die aktuelle Leistung liefert"
+      target_input:
+        description: "input_number, das erhöht werden soll"
+      debug_label:
+        description: "Text/Emoji für Debug-Log"
+    sequence:
+      - variables:
+          now_ts: "{{ as_timestamp(now()) }}"
+          last_ts: >-
+            {% set t = states('input_datetime.last_bkw_update') %}
+            {{ as_timestamp(t) if t not in ['unknown','unavailable','none',''] else as_timestamp(now()) }}
+          dt_sec: "{{ now_ts - last_ts }}"
+          dt_sec_clamped: "{{ min(dt_sec, 15) }}"
+          dt_h: "{{ dt_sec_clamped / 3600 }}"
+
+          power: "{{ states(power_entity) | float(0) }}"
+          energy: "{{ (power * dt_h) / 1000 }}"
+          price: "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
+
+          delta_eur: "{{ energy * price }}"
+
+      - choose:
+          - conditions: "{{ is_state('input_boolean.solar_savings_debug','on') }}"
+            sequence:
+              - service: logbook.log
+                data:
+                  name: "Solar Savings"
+                  message: >
+                    {{ debug_label }}:
+                    power={{ power }} W,
+                    dt={{ dt_h | round(6) }} h,
+                    Δ={{ delta_eur | round(6) }} €,
+                    price={{ price }} €/kWh
+
+      - if:
+          - condition: template
+            value_template: "{{ delta_eur > 0 }}"
+        then:
+          # Spezifischer Sparzähler
+          - service: input_number.set_value
+            target:
+              entity_id: "{{ target_input }}"
+            data:
+              value: >
+                {{ (states(target_input) | float(0) + delta_eur) | round(6) }}
+
+          # Gesamtsumme PV
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.saving_pv_total
+            data:
+              value: >
+                {{ (states('input_number.saving_pv_total') | float(0) + delta_eur) | round(6) }}
+
+      # Update Timestamp
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.last_bkw_update
+        data:
+          timestamp: "{{ now_ts }}"
 
 
 ###############################################################################
