@@ -1,0 +1,44 @@
+- id: '1718807324909'
+  name: Neue Szene
+  entities:
+    sensor.shelly_plusht_wz_battery:
+      state_class: measurement
+      unit_of_measurement: '%'
+      device_class: battery
+      friendly_name: Shelly PlusHT WZ battery
+      state: '57'
+    update.shelly_plusht_wz_firmware_update:
+      auto_update: false
+      installed_version: 1.1.1
+      in_progress: false
+      latest_version: 1.1.1
+      release_summary:
+      release_url: https://shelly-api-docs.shelly.cloud/gen2/changelog/
+      skipped_version:
+      title:
+      device_class: firmware
+      entity_picture: https://brands.home-assistant.io/_/shelly/icon.png
+      friendly_name: Shelly PlusHT WZ firmware update
+      supported_features: 0
+      state: 'off'
+    sensor.shelly_plusht_wz_humidity:
+      state_class: measurement
+      unit_of_measurement: '%'
+      device_class: humidity
+      friendly_name: Shelly PlusHT WZ humidity
+      state: '62.9'
+    sensor.shelly_plusht_wz_temperature:
+      state_class: measurement
+      unit_of_measurement: °C
+      device_class: temperature
+      friendly_name: Shelly PlusHT WZ temperature
+      state: '21.8'
+    device_tracker.shellyplusht_80:
+      source_type: router
+      ip: 172.16.1.12
+      mac: 80:64:6F:E1:7A:90
+      host_name: shellyplusht-80
+      icon: mdi:lan-disconnect
+      friendly_name: shellyplusht-80
+      state: not_home
+  metadata: {}

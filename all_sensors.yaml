@@ -1,0 +1,2 @@
+- !include old_sensors.yaml
+#- !include maxxicharge_sensors.yaml

@@ -1,0 +1,318 @@
+- id: '1714059575462'
+  alias: Müll-Licht Umschalten
+  description: ''
+  triggers:
+  - domain: mqtt
+    device_id: 3640b70c6a66ca627ce1250af26f59aa
+    type: action
+    subtype: press
+    trigger: device
+  conditions:
+  - condition: or
+    conditions:
+    - condition: and
+      conditions:
+      - condition: device
+        type: is_off
+        device_id: 509039fe92aa5c7a7eb98551b2c8085c
+        entity_id: 393297c78a4e6f247805c4c85fa2f3e7
+        domain: light
+      - condition: device
+        type: is_off
+        device_id: d201232fa61671d184f3ab346f10fe21
+        entity_id: f2ddd0aaf4128d3aa6bcc68d6dccc85d
+        domain: switch
+    - condition: and
+      conditions:
+      - condition: device
+        type: is_on
+        device_id: 509039fe92aa5c7a7eb98551b2c8085c
+        entity_id: 393297c78a4e6f247805c4c85fa2f3e7
+        domain: light
+      - condition: device
+        type: is_on
+        device_id: d201232fa61671d184f3ab346f10fe21
+        entity_id: f2ddd0aaf4128d3aa6bcc68d6dccc85d
+        domain: switch
+    enabled: true
+  actions:
+  - type: toggle
+    device_id: 509039fe92aa5c7a7eb98551b2c8085c
+    entity_id: 393297c78a4e6f247805c4c85fa2f3e7
+    domain: light
+  - type: toggle
+    device_id: d201232fa61671d184f3ab346f10fe21
+    entity_id: f2ddd0aaf4128d3aa6bcc68d6dccc85d
+    domain: switch
+  mode: single
+- id: '1714060956608'
+  alias: Müll-Licht Ausschalten
+  description: ''
+  triggers:
+  - domain: mqtt
+    device_id: 3640b70c6a66ca627ce1250af26f59aa
+    type: action
+    subtype: hold
+    trigger: device
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: 509039fe92aa5c7a7eb98551b2c8085c
+    entity_id: 393297c78a4e6f247805c4c85fa2f3e7
+    domain: light
+  - type: turn_off
+    device_id: d201232fa61671d184f3ab346f10fe21
+    entity_id: f2ddd0aaf4128d3aa6bcc68d6dccc85d
+    domain: switch
+  mode: single
+- id: '1719419749603'
+  alias: Licht Küche umschalten
+  description: ''
+  trigger:
+  - platform: device
+    domain: mqtt
+    device_id: 75166fc248b0908cb5cec63aeabeccd6
+    type: action
+    subtype: single
+  condition: []
+  action:
+  - type: toggle
+    device_id: 9603869646bd7c49ec70b0996d681df9
+    entity_id: 4218f4b288b266893805daf5f9f66329
+    domain: switch
+  mode: single
+- id: '1719430087485'
+  alias: Draußen kälter als drinnen
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - sensor.draussen_kalter_als_drinnen
+    from: '0'
+    to: '1'
+    for:
+      hours: 0
+      minutes: 5
+      seconds: 0
+  condition:
+  - condition: numeric_state
+    entity_id: sensor.shelly_plusht_wz_temperature
+    above: 23
+  action:
+  - service: notify.mobile_app_pixel_7_fuu
+    data:
+      message: Draussen ist es kälter als drinnen.
+  mode: single
+- id: '1719430141114'
+  alias: Draußen wärmer als drinnen
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - sensor.draussen_kalter_als_drinnen
+    from: '1'
+    to: '0'
+    for:
+      hours: 0
+      minutes: 5
+      seconds: 0
+  condition:
+  - condition: numeric_state
+    entity_id: sensor.shelly_ht_draussen_temperature
+    above: 23
+  action:
+  - data:
+      message: Draussen ist es wärmer als drinnen.
+    action: notify.mobile_app_pixel_7_fuu
+  mode: single
+- id: '1721576658250'
+  alias: Bogenlampe
+  description: ''
+  trigger:
+  - platform: device
+    domain: mqtt
+    device_id: 5a378cb4adf3f3711b73c1ebfd44a81f
+    type: action
+    subtype: 2_single
+  condition: []
+  action:
+  - type: toggle
+    device_id: a6221fe664e4e291fc0f14da165bb9ea
+    entity_id: f08beea6e20b96c05dea61d2475d37c0
+    domain: light
+  mode: single
+- id: '1721576779150'
+  alias: 3-Bein-Lampe
+  description: ''
+  triggers:
+  - domain: mqtt
+    device_id: 5a378cb4adf3f3711b73c1ebfd44a81f
+    type: action
+    subtype: 1_single
+    trigger: device
+  conditions: []
+  actions:
+  - type: toggle
+    device_id: c67258d3e995047fc7f81313093af526
+    entity_id: ee775a23ca3e99d3dc5a3772331bef50
+    domain: switch
+  mode: single
+- id: '1721577138059'
+  alias: Heizung-Lampe
+  description: ''
+  trigger:
+  - platform: device
+    domain: mqtt
+    device_id: 5a378cb4adf3f3711b73c1ebfd44a81f
+    type: action
+    subtype: 3_single
+  condition: []
+  action:
+  - type: toggle
+    device_id: eb3fc0a4aa4133f9c494e7c8031a3a03
+    entity_id: 9bb12d4997940e3dd5968174fcbdf87a
+    domain: light
+  mode: single
+- id: '1721577338617'
+  alias: Fernseh-Lampe
+  description: ''
+  trigger:
+  - platform: device
+    domain: mqtt
+    device_id: 5a378cb4adf3f3711b73c1ebfd44a81f
+    type: action
+    subtype: 4_single
+  condition: []
+  action:
+  - type: toggle
+    device_id: 22f8f24f21605eef5972aa91b1f095a0
+    entity_id: 6ff5baa986c326c083e3d744a7450498
+    domain: light
+  mode: single
+- id: '1756562791985'
+  alias: Rasensprenger an
+  description: ''
+  triggers:
+  - trigger: time
+    at: '20:00:00'
+    weekday:
+    - mon
+    - wed
+    - fri
+    - sun
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: b8fd43f9993e0b6ae48b7716f590ca60
+    entity_id: 05d585f82aa4bc297fc43420378440d2
+    domain: switch
+  mode: single
+- id: '1756562836737'
+  alias: Neue Automation
+  description: ''
+  triggers:
+  - trigger: time
+    at: '20:20:00'
+    weekday:
+    - mon
+    - wed
+    - fri
+    - sun
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: b8fd43f9993e0b6ae48b7716f590ca60
+    entity_id: 05d585f82aa4bc297fc43420378440d2
+    domain: switch
+  mode: single
+- id: '1765731925703'
+  alias: Carport-Licht an Sonnenuntergang
+  description: ''
+  triggers:
+  - trigger: sun
+    event: sunset
+    offset: 0
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: e4833c0951d51185eab1655daf1e9396
+    entity_id: 48767108e3a8230c280415a33a6d7f9a
+    domain: switch
+  mode: single
+- id: '1765732011857'
+  alias: Carport Licht aus 22:15
+  description: ''
+  triggers:
+  - trigger: time
+    at: '22:15:00'
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: e4833c0951d51185eab1655daf1e9396
+    entity_id: 48767108e3a8230c280415a33a6d7f9a
+    domain: switch
+  mode: single
+- id: '1765732320123'
+  alias: Carport Licht an 6:30
+  description: ''
+  triggers:
+  - trigger: time
+    at: 06:30:00
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: e4833c0951d51185eab1655daf1e9396
+    entity_id: 48767108e3a8230c280415a33a6d7f9a
+    domain: switch
+  mode: single
+- id: '1765732392583'
+  alias: Carport Licht aus 8:15
+  description: ''
+  triggers:
+  - trigger: time
+    at: 08:15:00
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: e4833c0951d51185eab1655daf1e9396
+    entity_id: 48767108e3a8230c280415a33a6d7f9a
+    domain: switch
+  mode: single
+- id: '1772661872997'
+  alias: Person im AZ => Heizung an
+  description: ''
+  triggers:
+  - type: power
+    device_id: e1d4512ff90460e4ad1914196323b697
+    entity_id: 5bdae6f3ecc4d554843b61dd8a6ab152
+    domain: sensor
+    trigger: device
+    above: 15
+  conditions: []
+  actions:
+  - action: climate.set_temperature
+    metadata: {}
+    target:
+      entity_id: climate.better_thermostat_az
+    data:
+      temperature: 21
+  mode: single
+- id: '1772662022465'
+  alias: Person NICHT mehr im AZ => Heizung aus
+  description: ''
+  triggers:
+  - type: power
+    device_id: e1d4512ff90460e4ad1914196323b697
+    entity_id: 5bdae6f3ecc4d554843b61dd8a6ab152
+    domain: sensor
+    trigger: device
+    below: 15
+  conditions: []
+  actions:
+  - action: climate.set_temperature
+    metadata: {}
+    target:
+      entity_id: climate.better_thermostat_az
+    data:
+      temperature: 18
+  mode: single

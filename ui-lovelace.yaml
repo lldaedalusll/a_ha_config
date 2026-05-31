@@ -1,0 +1,14 @@
+title: Test Dashboard
+views:
+  - title: Übersicht
+    path: default_view
+    icon: mdi:home
+    cards:
+      - type: entities
+        title: Sensoren
+        show_header_toggle: false
+        entities:
+          - sensor.maxxicharge_battery_0_pvpower
+          - sensor.maxxicharge_battery_1_pvpower
+          - sensor.maxxicharge_ccu_input_power
+          - sensor.maxxicharge_ccu_output_power

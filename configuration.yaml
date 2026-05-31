@@ -23,35 +23,39 @@ frontend:
 # tts:
 #  - platform: pc
 
-
 influxdb:
-  api_version: 2
-  ssl: false
-  host: homeassistant
-  port: 8096
-  token: 1gqxzEV5NUIe5DWos7Yn1uvUoNUpqyx9cFWdIHkqfbrlNPXB825AZEOUGdJu8OoBZXrvIP4qRYGUgibfTYoB3A==
-  organization: homeassistant
-  bucket: data
   tags:
     source: HA
   tags_attributes:
     - friendly_name
   default_measurement: units
   precision: s
+  # Glob-Regeln greifen erst, wenn die Domains NICHT mehr im exclude stehen
+  component_config_glob:
+    "binary_sensor.*":
+      override_measurement: binary_sensors
+    "automation.*":
+      override_measurement: automations
   exclude:
-    entities:
-      - zone.home
     domains:
       - persistent_notification
       - person
+      - input_number
+      - script
+      - automation    # Blockiert neue Daten
+      - binary_sensor # Blockiert neue Daten
+      - sun
+    entity_globs:
+      - sensor.*_battery_state
+      - sensor.*_charger_type
+      - sensor.tasmota_ssid*
+      - sensor.*_uptime*
+    entities:
+      - zone.home
+      - weather.home
   include:
     domains:
       - sensor
-      - binary_sensor
-      - sun
-    entities:
-      - weather.home
-
 
 #
 #recorder:
@@ -77,6 +81,8 @@ recorder:
       - remote
       - select
       - number
+      - input_number
+      - script
     entities:
       - sensor.tasmota_energy_supply
 
