@@ -1,21 +1,43 @@
+#
+# this sensor fires to often, so replaced by a better version firing less often
+#
+# template:
+#   - sensor:
+#     #
+#     # phase A minus desired output power from maxxisun ccu
+#     #
+#     # This has been the very best to be used instead of regular phase A in energy dashboard, which caused the least amount of undetected consumption
+#     # 
+#     - name: 'Phase a active power corrected'
+#       unique_id: phase_a_active_power_corrected
+#       device_class: power
+#       state_class: measurement
+#       icon: mdi:flash
+#       unit_of_measurement: W
+#       state: "{{ states('sensor.shellypro3em_08f9e0e7a100_phase_a_active_power') | float(3) + states('sensor.maxxicharge_ccu_output_power') | float(3) }}"
+
+
 template:
+  # Trigger-basierter Sensor (reagiert NUR auf den Shelly oder HA-Start)
+  - trigger:
+      - platform: state
+        entity_id: sensor.shellypro3em_08f9e0e7a100_phase_a_active_power
+      - platform: homeassistant
+        event: start
+    sensor:
+      - name: 'Phase a active power corrected'
+        unique_id: phase_a_active_power_corrected
+        device_class: power
+        state_class: measurement
+        icon: mdi:flash
+        unit_of_measurement: W
+        state: >
+          {% set shelly = states('sensor.shellypro3em_08f9e0e7a100_phase_a_active_power') | float(0) %}
+          {% set maxxi = states('sensor.maxxicharge_ccu_output_power') | float(0) %}
+          {{ (shelly + maxxi) | round(2) }}
+
+
   - sensor:
-
-
-    #
-    # phase A minus desired output power from maxxisun ccu
-    #
-    # This has been the very best to be used instead of regular phase A in energy dashboard, which caused the least amount of undetected consumption
-    # 
-    - name: 'Phase a active power corrected'
-      unique_id: phase_a_active_power_corrected
-      device_class: power
-      state_class: measurement
-      icon: mdi:flash
-      unit_of_measurement: W
-      state: "{{ states('sensor.shellypro3em_08f9e0e7a100_phase_a_active_power') | float(3) + states('sensor.maxxicharge_ccu_output_power') | float(3) }}"
-
-
     - name: "draussen_kälter_als_drinnen"
       unique_id: draussen_kälter_als_drinnen
       unit_of_measurement: none
@@ -27,11 +49,3 @@ template:
           {{ 0 }}
         {% endif %}
 
-#   # helper series to make the produced PV power injected into the network negative (as this is no consumption, but a production)
-#   - name: 'shelly_plus_1_pm_1_energy_negated'
-#     unique_id: shelly_plus_1_pm_1_energy_negated
-#     unit_of_measurement: kWh
-#     state_class: total_increasing
-#     device_class: energy
-#     icon: mdi:flash
-#     state: "{{ states('sensor.shelly_plus_1_pm_1_energy') | float(3) * -1 }}"

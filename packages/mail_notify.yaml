@@ -1,0 +1,15 @@
+###############################################################################
+# Package: SMTP Mail Server Konfiguration
+###############################################################################
+
+notify:
+  - name: ro_mail_notifier
+    platform: smtp
+    server: "smtp.strato.de"             # z.B. smtp.gmx.net oder mail.deine-domain.de
+    port: 587                            # 587 ist Standard für STARTTLS
+    timeout: 15
+    sender: "XXXXXXXXXXXXXXXXXXXX"       # Die Adresse, von der die Mail kommt
+    encryption: starttls                 # Meistens erforderlich
+    username: "XXXXXXXXXXXXXXXXXXXX"     # Oft die E-Mail-Adresse selbst
+    password: "XXXXXXXXXXXXXXXXXXXX"     # Dein Passwort im Klartext (hier ausgeblendet)
+    recipient: "XXXXXXXXXXXXXXXXXXXX"    # Die Adresse, die den Bericht empfangen soll

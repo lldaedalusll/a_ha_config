@@ -1,4 +1,3 @@
-
 #
 # input_number: values the webhook json gets extracted into
 #
@@ -87,72 +86,317 @@ input_number:
 #
 
 automation:
-  - alias: "Maxxicharge Webhook Werte setzen"
+  - alias: "Maxxicharge Webhook Werte setzen (Loop)"
+    mode: queued
     trigger:
-      platform: webhook
-      webhook_id: maxxicharge_2IC7L1RdGWAvYKQgrBqLlz1scUKRSV
+      - platform: webhook
+        webhook_id: maxxicharge_2IC7L1RdGWAvYKQgrBqLlz1scUKRSV
+
+    variables:
+      updates:
+        - entity: input_number.maxxicharge_battery_0_pvpower
+          value: "{{ trigger.json.batteriesInfo[0].pvPower }}"
+        - entity: input_number.maxxicharge_battery_1_pvpower
+          value: "{{ trigger.json.batteriesInfo[1].pvPower }}"
+
+        - entity: input_number.maxxicharge_ccu_input_power
+          value: "{{ trigger.json.PV_power_total }}"
+        - entity: input_number.maxxicharge_ccu_output_power
+          value: "{{ trigger.json.ccuTotalPower }}"
+
+        - entity: input_number.maxxicharge_ccu_0_output_power
+          value: "{{ trigger.json.convertersInfo[0].ccuPower }}"
+        - entity: input_number.maxxicharge_ccu_1_output_power
+          value: "{{ trigger.json.convertersInfo[1].ccuPower }}"
+
+        - entity: input_number.maxxicharge_battery_0_capacity
+          value: "{{ trigger.json.batteriesInfo[0].batteryCapacity }}"
+        - entity: input_number.maxxicharge_battery_1_capacity
+          value: "{{ trigger.json.batteriesInfo[1].batteryCapacity }}"
+
+        - entity: input_number.maxxicharge_battery_all_state_of_charge
+          value: "{{ trigger.json.SOC }}"
+
+        - entity: input_number.maxxicharge_ccu_0_temperature
+          value: "{{ trigger.json.convertersInfo[0].ccuTemperature }}"
+        - entity: input_number.maxxicharge_ccu_1_temperature
+          value: "{{ trigger.json.convertersInfo[1].ccuTemperature }}"
+
     action:
 #      - service: persistent_notification.create
 #        data:
 #          message: "Webhook wurde erfolgreich ausgelöst!"
 #          title: "Webhook-Test"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_battery_0_pvpower
-        data:
-          value: "{{ trigger.json.batteriesInfo[0].pvPower }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_battery_1_pvpower
-        data:
-          value: "{{ trigger.json.batteriesInfo[1].pvPower }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_ccu_input_power
-        data:
-          value: "{{ trigger.json.PV_power_total }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_ccu_output_power
-        data:
-          value: "{{ trigger.json.ccuTotalPower }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_battery_0_capacity
-        data:
-          value: "{{ trigger.json.batteriesInfo[0].batteryCapacity }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_battery_1_capacity
-        data:
-          value: "{{ trigger.json.batteriesInfo[1].batteryCapacity }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_battery_all_state_of_charge
-        data:
-          value: "{{ trigger.json.SOC }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_ccu_0_temperature
-        data:
-          value: "{{ trigger.json.convertersInfo[0].ccuTemperature }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_ccu_1_temperature
-        data:
-          value: "{{ trigger.json.convertersInfo[1].ccuTemperature }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_ccu_0_output_power
-        data:
-          value: "{{ trigger.json.convertersInfo[0].ccuPower }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.maxxicharge_ccu_1_output_power
-        data:
-          value: "{{ trigger.json.convertersInfo[1].ccuPower }}"
+      - repeat:
+          for_each: "{{ updates }}"
+          sequence:
+            - if:
+                - condition: template
+                  value_template: >
+                    {{ states(repeat.item.entity) | float != repeat.item.value | float }}
+              then:
+                - service: input_number.set_value
+                  target:
+                    entity_id: "{{ repeat.item.entity }}"
+                  data:
+                    value: "{{ repeat.item.value | float }}"
 
 
+
+
+
+
+
+
+# 
+# automation:
+#   - alias: "Maxxicharge Webhook Werte setzen"
+#     mode: queued
+#     trigger:
+#       - platform: webhook
+#         webhook_id: maxxicharge_2IC7L1RdGWAvYKQgrBqLlz1scUKRSV
+# 
+#     action:
+# #      - service: persistent_notification.create
+# #        data:
+# #          message: "Webhook wurde erfolgreich ausgelöst!"
+# #          title: "Webhook-Test"
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_battery_0_pvpower') | float
+#                  != trigger.json.batteriesInfo[0].pvPower | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_battery_0_pvpower
+#             data:
+#               value: "{{ trigger.json.batteriesInfo[0].pvPower | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_battery_1_pvpower') | float
+#                  != trigger.json.batteriesInfo[1].pvPower | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_battery_1_pvpower
+#             data:
+#               value: "{{ trigger.json.batteriesInfo[1].pvPower | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_ccu_input_power') | float
+#                  != trigger.json.PV_power_total | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_ccu_input_power
+#             data:
+#               value: "{{ trigger.json.PV_power_total | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_ccu_output_power') | float
+#                  != trigger.json.ccuTotalPower | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_ccu_output_power
+#             data:
+#               value: "{{ trigger.json.ccuTotalPower | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_ccu_0_output_power') | float
+#                  != trigger.json.convertersInfo[0].ccuPower | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_ccu_0_output_power
+#             data:
+#               value: "{{ trigger.json.convertersInfo[0].ccuPower | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_ccu_1_output_power') | float
+#                  != trigger.json.convertersInfo[1].ccuPower | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_ccu_1_output_power
+#             data:
+#               value: "{{ trigger.json.convertersInfo[1].ccuPower | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_battery_0_capacity') | float
+#                  != trigger.json.batteriesInfo[0].batteryCapacity | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_battery_0_capacity
+#             data:
+#               value: "{{ trigger.json.batteriesInfo[0].batteryCapacity | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_battery_1_capacity') | float
+#                  != trigger.json.batteriesInfo[1].batteryCapacity | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_battery_1_capacity
+#             data:
+#               value: "{{ trigger.json.batteriesInfo[1].batteryCapacity | float }}"
+# 
+#       # --- SOC (Problemstelle) ---
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_battery_all_state_of_charge') | float
+#                  != trigger.json.SOC | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_battery_all_state_of_charge
+#             data:
+#               value: "{{ trigger.json.SOC | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_ccu_0_temperature') | float
+#                  != trigger.json.convertersInfo[0].ccuTemperature | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_ccu_0_temperature
+#             data:
+#               value: "{{ trigger.json.convertersInfo[0].ccuTemperature | float }}"
+# 
+#       - if:
+#           - condition: template
+#             value_template: >
+#               {{ states('input_number.maxxicharge_ccu_1_temperature') | float
+#                  != trigger.json.convertersInfo[1].ccuTemperature | float }}
+#         then:
+#           - service: input_number.set_value
+#             target:
+#               entity_id: input_number.maxxicharge_ccu_1_temperature
+#             data:
+#               value: "{{ trigger.json.convertersInfo[1].ccuTemperature | float }}"
+# 
+
+
+
+
+# 
+# automation:
+#   - alias: "Maxxicharge Webhook Werte setzen"
+#     trigger:
+#       platform: webhook
+#       webhook_id: maxxicharge_2IC7L1RdGWAvYKQgrBqLlz1scUKRSV
+#     action:
+# 
+#       - choose:
+#           # alle Werte nur bei Änderung übernehmen
+#           - conditions: "{{ states('input_number.maxxicharge_battery_0_pvpower') | float != trigger.json.batteriesInfo[0].pvPower | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_battery_0_pvpower
+#                 data:
+#                   value: "{{ trigger.json.batteriesInfo[0].pvPower }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_battery_1_pvpower') | float != trigger.json.batteriesInfo[1].pvPower | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_battery_1_pvpower
+#                 data:
+#                   value: "{{ trigger.json.batteriesInfo[1].pvPower }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_ccu_input_power') | float != trigger.json.PV_power_total | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_ccu_input_power
+#                 data:
+#                   value: "{{ trigger.json.PV_power_total }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_ccu_output_power') | float != trigger.json.ccuTotalPower | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_ccu_output_power
+#                 data:
+#                   value: "{{ trigger.json.ccuTotalPower }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_ccu_0_output_power') | float != trigger.json.convertersInfo[0].ccuPower | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_ccu_0_output_power
+#                 data:
+#                   value: "{{ trigger.json.convertersInfo[0].ccuPower }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_ccu_1_output_power') | float != trigger.json.convertersInfo[1].ccuPower | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_ccu_1_output_power
+#                 data:
+#                   value: "{{ trigger.json.convertersInfo[1].ccuPower }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_battery_0_capacity') | float != trigger.json.batteriesInfo[0].batteryCapacity | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_battery_0_capacity
+#                 data:
+#                   value: "{{ trigger.json.batteriesInfo[0].batteryCapacity }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_battery_1_capacity') | float != trigger.json.batteriesInfo[1].batteryCapacity | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_battery_1_capacity
+#                 data:
+#                   value: "{{ trigger.json.batteriesInfo[1].batteryCapacity }}"
+# 
+#        #  - conditions: "{{ states('input_number.maxxicharge_battery_all_state_of_charge') != trigger.json.SOC }}"
+#           - conditions: "{{ 1 != 0 }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_battery_all_state_of_charge
+#                 data:
+#                   value: "{{ trigger.json.SOC | float }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_ccu_0_temperature') | float != trigger.json.convertersInfo[0].ccuTemperature | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_ccu_0_temperature
+#                 data:
+#                   value: "{{ trigger.json.convertersInfo[0].ccuTemperature }}"
+# 
+#           - conditions: "{{ states('input_number.maxxicharge_ccu_1_temperature') | float != trigger.json.convertersInfo[1].ccuTemperature | float }}"
+#             sequence:
+#               - service: input_number.set_value
+#                 target:
+#                   entity_id: input_number.maxxicharge_ccu_1_temperature
+#                 data:
+#                   value: "{{ trigger.json.convertersInfo[1].ccuTemperature }}"
+# 
 
 #
 # template sensoren: Langzeitspeicherung der Daten aus den input_value + einige daraus berechnete

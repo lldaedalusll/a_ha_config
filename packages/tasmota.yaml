@@ -1,10 +1,18 @@
 template:
   - sensor:
-  
-    # replacement for one series of tasmota, but with the correct unit and class (wrong on the original)
-    - name: "tasmota_energy_supply_kwh"
-      unique_id: tasmota_energy_supply_kwh
-      unit_of_measurement: kWh
-      state_class: total_increasing
-      device_class: energy
-      state: "{{ states('sensor.tasmota_energy_supply') }}"
+
+      # replacement for one series of tasmota, but with the correct unit and class (wrong on the original)
+      - name: "tasmota_energy_supply_kwh"
+        unique_id: tasmota_energy_supply_kwh
+        unit_of_measurement: kWh
+        state_class: total_increasing
+        device_class: energy
+        state: >
+          {% set val = states('sensor.tasmota_energy_supply') %}
+          {% if val | is_number %}
+            {{ val | float }}
+          {% elif this.state not in ['unknown', 'unavailable', 'none'] %}
+            {{ this.state }}
+          {% else %}
+            {{ none }}
+          {% endif %}

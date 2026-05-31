@@ -1,0 +1,192 @@
+###############################################################################
+# Package: PV Ersparnis (Produktiv-Version)
+###############################################################################
+
+# 1. ZEITSTEMPEL-HELFER
+input_datetime:
+  pv_saving_last_run:
+    name: "Zeitpunkt der letzten PV-Mail"
+    has_date: true
+    has_time: true
+
+# 2. NUMERISCHE HELFER (DATENSPEICHER)
+input_number:
+  pv_saving_total_eur_discharge: { name: "Ersparnis Akku Entladung Gesamt", unit_of_measurement: "€", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_total_eur_passthrough: { name: "Ersparnis Direktnutzung Gesamt", unit_of_measurement: "€", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_total_eur_combined: { name: "Ersparnis Netto Gesamt", unit_of_measurement: "€", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_total_eur_loss: { name: "Verlust durch Einspeisung Gesamt", unit_of_measurement: "€", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_total_eur_loss_dis: { name: "Verlust Akku Gesamt", unit_of_measurement: "€", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_total_eur_loss_pass: { name: "Verlust Direktnutzung Gesamt", unit_of_measurement: "€", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_last_pv_input_sum: { name: "Zählerstand PV Eingang (letzter Lauf)", unit_of_measurement: "kWh", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_last_charge_sum: { name: "Zählerstand Akku Ladung (letzter Lauf)", unit_of_measurement: "kWh", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_last_discharge_sum: { name: "Zählerstand Akku Entladung (letzter Lauf)", unit_of_measurement: "kWh", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_last_passthrough_sum: { name: "Zählerstand Direktnutzung (letzter Lauf)", unit_of_measurement: "kWh", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_last_export_sum: { name: "Zählerstand Einspeisung (letzter Lauf)", unit_of_measurement: "kWh", min: 0, max: 1000000, step: 0.0001, mode: box }
+  pv_saving_last_output_sum: { name: "Zählerstand Shelly Ausgang (letzter Lauf)", unit_of_measurement: "kWh", min: 0, max: 1000000, step: 0.0001, mode: box }
+
+# 3. TEMPLATE SENSOREN (FÜR INFLUX DB)
+template:
+  - sensor:
+      - name: "pv_saving_total_eur_discharge"
+        unique_id: pv_saving_total_eur_discharge_sensor
+        unit_of_measurement: "€"
+        state: "{{ states('input_number.pv_saving_total_eur_discharge') | float(0) }}"
+        device_class: monetary
+        state_class: total_increasing
+      - name: "pv_saving_total_eur_passthrough"
+        unique_id: pv_saving_total_eur_passthrough_sensor
+        unit_of_measurement: "€"
+        state: "{{ states('input_number.pv_saving_total_eur_passthrough') | float(0) }}"
+        device_class: monetary
+        state_class: total_increasing
+      - name: "pv_saving_total_eur_combined"
+        unique_id: pv_saving_total_eur_combined_sensor
+        unit_of_measurement: "€"
+        state: "{{ states('input_number.pv_saving_total_eur_combined') | float(0) }}"
+        device_class: monetary
+        state_class: total_increasing
+      - name: "pv_saving_total_eur_loss"
+        unique_id: pv_saving_total_eur_loss_sensor
+        unit_of_measurement: "€"
+        state: "{{ states('input_number.pv_saving_total_eur_loss') | float(0) }}"
+        device_class: monetary
+        state_class: total_increasing
+      - name: "pv_saving_total_eur_loss_dis"
+        unique_id: pv_saving_total_eur_loss_dis_sensor
+        unit_of_measurement: "€"
+        state: "{{ states('input_number.pv_saving_total_eur_loss_dis') | float(0) }}"
+        device_class: monetary
+        state_class: total_increasing
+      - name: "pv_saving_total_eur_loss_pass"
+        unique_id: pv_saving_total_eur_loss_pass_sensor
+        unit_of_measurement: "€"
+        state: "{{ states('input_number.pv_saving_total_eur_loss_pass') | float(0) }}"
+        device_class: monetary
+        state_class: total_increasing
+
+# 4. DIE LOGIK-AUTOMATION
+automation:
+  - alias: "pv_saving_daily_calculation_and_mail"
+    trigger:
+      - platform: time
+        at: "00:00:00"
+    action:
+      - variables:
+          v_last_run_time: "{{ states('input_datetime.pv_saving_last_run') }}"
+          # --- AKTUELLE WERTE ---
+          v_curr_pv:   "{{ states('sensor.maxxicharge_ccu_input_power_sum') | float(0) }}"
+          v_curr_chg:  "{{ states('sensor.maxxicharge_battery_all_charge_power_sum') | float(0) }}"
+          v_curr_dis:  "{{ states('sensor.maxxicharge_battery_all_discharge_power_sum') | float(0) }}"
+          v_curr_pass: "{{ states('sensor.maxxicharge_ccu_passthrough_power_sum') | float(0) }}"
+          v_curr_exp:  "{{ states('sensor.tasmota_energy_supply_kwh') | float(0) }}"
+          v_curr_out:  "{{ states('sensor.shelly_plus_1_pm_1_energy') | float(0) }}"
+          v_price:     "{{ states('sensor.strom_preis_pro_kwh') | float(0) }}"
+          # --- LETZTE WERTE ---
+          v_last_pv:   "{{ states('input_number.pv_saving_last_pv_input_sum') | float(0) }}"
+          v_last_chg:  "{{ states('input_number.pv_saving_last_charge_sum') | float(0) }}"
+          v_last_dis:  "{{ states('input_number.pv_saving_last_discharge_sum') | float(0) }}"
+          v_last_pass: "{{ states('input_number.pv_saving_last_passthrough_sum') | float(0) }}"
+          v_last_exp:  "{{ states('input_number.pv_saving_last_export_sum') | float(0) }}"
+          v_last_out:  "{{ states('input_number.pv_saving_last_output_sum') | float(0) }}"
+          # --- DIFFERENZEN ---
+          is_initial:  "{{ v_last_pv <= 0.0001 }}"
+          d_pv:   "{{ [0.0, (v_curr_pv - v_last_pv)] | max if not is_initial else 0.0 }}"
+          d_chg:  "{{ [0.0, (v_curr_chg - v_last_chg)] | max if not is_initial else 0.0 }}"
+          d_dis:  "{{ [0.0, (v_curr_dis - v_last_dis)] | max if not is_initial else 0.0 }}"
+          d_pass: "{{ [0.0, (v_curr_pass - v_last_pass)] | max if not is_initial else 0.0 }}"
+          d_exp:  "{{ [0.0, (v_curr_exp - v_last_exp)] | max if not is_initial else 0.0 }}"
+          d_out:  "{{ [0.0, (v_curr_out - v_last_out)] | max if not is_initial else 0.0 }}"
+          # --- FINANZEN ---
+          h_total: "{{ (d_dis | float + d_pass | float) }}"
+          w_dis:   "{{ (d_dis | float / h_total | float) if h_total | float > 0.0001 else 0 }}"
+          w_pass:  "{{ (d_pass | float / h_total | float) if h_total | float > 0.0001 else 0 }}"
+          eur_period_dis:   "{{ (d_dis | float - (d_exp | float * w_dis | float)) * v_price | float if not is_initial else 0.0 }}"
+          eur_period_pass:  "{{ (d_pass | float - (d_exp | float * w_pass | float)) * v_price | float if not is_initial else 0.0 }}"
+          eur_period_total: "{{ eur_period_dis | float + eur_period_pass | float }}"
+          eur_period_loss_total: "{{ (d_exp | float * v_price | float) if not is_initial else 0.0 }}"
+          eur_period_loss_dis:   "{{ (d_exp | float * w_dis | float * v_price | float) if not is_initial else 0.0 }}"
+          eur_period_loss_pass:  "{{ (d_exp | float * w_pass | float * v_price | float) if not is_initial else 0.0 }}"
+
+      # SCHRITT 1: Zähler-Reset via Schleife
+      - repeat:
+          for_each:
+            - { ent: "last_pv_input_sum", val: "{{ v_curr_pv }}" }
+            - { ent: "last_charge_sum", val: "{{ v_curr_chg }}" }
+            - { ent: "last_discharge_sum", val: "{{ v_curr_dis }}" }
+            - { ent: "last_passthrough_sum", val: "{{ v_curr_pass }}" }
+            - { ent: "last_export_sum", val: "{{ v_curr_exp }}" }
+            - { ent: "last_output_sum", val: "{{ v_curr_out }}" }
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: "input_number.pv_saving_{{ repeat.item.ent }}"
+              data:
+                value: "{{ repeat.item.val | float }}"
+
+      # SCHRITT 2: Zeitstempel
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.pv_saving_last_run }
+        data: { datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}" }
+
+      # SCHRITT 3: Mail senden (Direktnutzung über Akku)
+      - action: notify.ro_mail_notifier
+        data:
+          title: "PV-Bericht - {{ now().strftime('%d.%m.%Y %H:%M') }}"
+          message: "PV-Ersparnis Bericht"
+          data:
+            html: |
+              # ... (die Zeitberechnung hrs, mins)
+              <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; color: #000;">
+                <div style="margin-bottom: 10px;"><b>PV-Bericht</b> (Stand: {{ now().strftime('%H:%M Uhr') }})<br>Zeitraum: {{ hrs }}h {{ mins }}min</div>
+                <table style="width: 350px; border-collapse: collapse; font-size: 13px;">
+                  <colgroup><col style="width: 170px;"><col style="width: 100px;"><col style="width: 80px;"></colgroup>
+                  <tr><td colspan="3" style="padding: 10px 0 2px 0;"><b>VERÄNDERUNGEN IM ZEITRAUM:</b></td></tr>
+                  {% for label, val, unit in [('- PV Produktion:', d_pv, 'kWh'), ('- Direktnutzung:', d_pass, 'kWh'), ('- Akku Ladung:', d_chg, 'kWh'), ('- Akku Entladung:', d_dis, 'kWh'), ('- BKW Gesamt-Ausgabe:', d_out, 'kWh'), ('- Netz-Einspeisung:', d_exp, 'kWh')] %}
+                  <tr><td>{{ label }}</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(val | float) }}</td><td>{{ unit }}</td></tr>
+                  {% endfor %}
+                  <tr style="font-weight: bold; border-top: 1px dashed #ccc;"><td>- Eff. Eigenverbrauch:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format([0.0, (d_out | float - d_exp | float)] | max) }}</td><td>kWh</td></tr>
+                  <tr><td colspan="3" style="padding: 20px 0 2px 0;"><b>ERSPARNIS/VERLUST ZEITRAUM:</b></td></tr>
+                  <tr style="color: #006400;"><td>- Ersparnis Direkt:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(eur_period_pass | float) }}</td><td>€</td></tr>
+                  <tr style="color: #006400;"><td>- Ersparnis Akku:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(eur_period_dis | float) }}</td><td>€</td></tr>
+                  <tr style="border-top: 1px solid #000; color: #006400; font-weight: bold;"><td>- Ersparnis Zeitraum:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(eur_period_total | float) }}</td><td>€</td></tr>
+                  <tr><td colspan="3" style="padding: 6px 0;"><hr style="border: 0; border-top: 1px solid #eee;"></td></tr>
+                  <tr style="color: #8b0000;"><td>- Verlust Direkt:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(eur_period_loss_pass | float) }}</td><td>€</td></tr>
+                  <tr style="color: #8b0000;"><td>- Verlust Akku:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(eur_period_loss_dis | float) }}</td><td>€</td></tr>
+                  <tr style="border-top: 1px solid #000; color: #8b0000; font-weight: bold;"><td>- Verlust Zeitraum:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(eur_period_loss_total | float) }}</td><td>€</td></tr>
+                  <tr><td colspan="3" style="padding: 20px 0 2px 0;"><b>ERSPARNIS/VERLUST GESAMT:</b></td></tr>
+                  <tr style="color: #006400;"><td>- Ersparnis Direkt:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(states('input_number.pv_saving_total_eur_passthrough') | float(0) + eur_period_pass | float) }}</td><td>€</td></tr>
+                  <tr style="color: #006400;"><td>- Ersparnis Akku:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(states('input_number.pv_saving_total_eur_discharge') | float(0) + eur_period_dis | float) }}</td><td>€</td></tr>
+                  <tr style="border-top: 1px solid #000; color: #006400; font-weight: bold;"><td>- Ersparnis Gesamt:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(states('input_number.pv_saving_total_eur_combined') | float(0) + eur_period_total | float) }}</td><td>€</td></tr>
+                  <tr><td colspan="3" style="padding: 6px 0;"><hr style="border: 0; border-top: 1px solid #eee;"></td></tr>
+                  <tr style="color: #8b0000;"><td>- Verlust Direkt:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(states('input_number.pv_saving_total_eur_loss_pass') | float(0) + eur_period_loss_pass | float) }}</td><td>€</td></tr>
+                  <tr style="color: #8b0000;"><td>- Verlust Akku:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(states('input_number.pv_saving_total_eur_loss_dis') | float(0) + eur_period_loss_dis | float) }}</td><td>€</td></tr>
+                  <tr style="border-top: 1px solid #000; color: #8b0000; font-weight: bold;"><td>- Verlust Gesamt:</td><td style="text-align: right; padding-right: 10px;">{{ "%0.3f" | format(states('input_number.pv_saving_total_eur_loss') | float(0) + eur_period_loss_total | float) }}</td><td>€</td></tr>
+                </table>
+              </div>
+
+      # SCHRITT 4: Summen-Update via Schleife
+      - repeat:
+          for_each:
+            - { ent: "total_eur_discharge", val: "{{ eur_period_dis }}" }
+            - { ent: "total_eur_passthrough", val: "{{ eur_period_pass }}" }
+            - { ent: "total_eur_combined", val: "{{ eur_period_total }}" }
+            - { ent: "total_eur_loss", val: "{{ eur_period_loss_total }}" }
+            - { ent: "total_eur_loss_dis", val: "{{ eur_period_loss_dis }}" }
+            - { ent: "total_eur_loss_pass", val: "{{ eur_period_loss_pass }}" }
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: "input_number.pv_saving_{{ repeat.item.ent }}"
+              data:
+                value: "{{ (states('input_number.pv_saving_' ~ repeat.item.ent) | float(0) + repeat.item.val | float(0)) | round(3) }}"
+
+      # SCHRITT 5: Sensoren mit den Daten der Input Numbers aktualisieren
+      - action: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.pv_saving_total_eur_discharge
+            - sensor.pv_saving_total_eur_passthrough
+            - sensor.pv_saving_total_eur_combined
+            - sensor.pv_saving_total_eur_loss
+            - sensor.pv_saving_total_eur_loss_dis
+            - sensor.pv_saving_total_eur_loss_pass

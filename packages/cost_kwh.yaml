@@ -1,6 +1,6 @@
 ###############################################################################
 #  PACKAGE: Strompreis pro kWh (automatische historische Preiswechsel)
-#  Version: 2025-11
+#  Version: 2026-02
 ###############################################################################
 #  Beschreibung:
 #   - Input Number dient als zentrale Quelle für alle Berechnungen
@@ -26,15 +26,24 @@ input_number:
 #  TEMPLATE-SENSOR (für Dashboards / Influx / Grafana)
 ###############################################################################
 template:
-  - sensor:
+  - trigger:
+      # Trigger 1: Jeden vollen Tag
+      - platform: time
+        at: "00:00:00"
+      # Trigger 2: Bei jeder manuellen Änderung der Input Number
+      - platform: state
+        entity_id: input_number.strom_preis_pro_kwh
+    sensor:
       - name: "Strom_Preis_pro_kWh"
         unique_id: sensor_strom_preis_pro_kwh
         unit_of_measurement: "€"
         icon: mdi:currency-eur
         state_class: measurement
+        # Schreibt den Wert der Input Number in den Sensor (und damit auch Influxdb)
         state: >
-          {# Leitet sich direkt von der Input Number ab (immer synchron) #}
           {{ states('input_number.strom_preis_pro_kwh') | float(0) }}
+        attributes:
+          last_reset: "{{ now() }}"
 
 ###############################################################################
 #  AUTOMATIONEN (Historische Preisänderungen)
@@ -104,3 +113,4 @@ automation:
           entity_id: input_number.strom_preis_pro_kwh
         data:
           value: 0.3209
+

@@ -32,7 +32,7 @@ template:
         unique_id: "saving_feedin_loss_template"
         unit_of_measurement: "€"
         icon: mdi:transmission-tower-export
-        state: "{{ states('input_number.saving_feedin_loss') | float(-9999) | round(2) }}"
+        state: "{{ states('input_number.saving_feedin_loss') | float(0) | round(2) }}"
 
 ###############################################################################
 #  AUTOMATIONEN
@@ -74,22 +74,24 @@ automation:
 
     action:
       - variables:
-          prev: "{{ trigger.from_state.state | float(-9999) }}"
-          curr: "{{ trigger.to_state.state | float(-9999) }}"
+          prev: "{{ trigger.from_state.state | float(0) }}"
+          curr: "{{ trigger.to_state.state | float(0) }}"
           delta_kwh: >-
-            {% if prev | float(0) > -1 and curr | float(0) > -1 %}
+            {% if prev > -1 and curr > -1 %}
               {{ curr - prev }}
-            {% else %}
-              -9999
-            {% endif %}
-
-          price: "{{ states('input_number.strom_preis_pro_kwh') | float(-9999) }}"
-          delta_loss_eur: >-
-            {% if delta_kwh | float(0) > 0 and price | float(0) > 0 %}
-              {{ -1 * delta_kwh | float(0) * price | float(0) }}
             {% else %}
               0
             {% endif %}
+
+
+          price: "{{ states('input_number.strom_preis_pro_kwh') | float(0) }}"
+          delta_loss_eur: >-
+            {% if delta_kwh > 0 and price > 0 %}
+              {{ -1 * delta_kwh * price }}
+            {% else %}
+              0
+            {% endif %}
+
 
           debug_v1: >
             [DEBUG FEEDIN V1]
@@ -125,15 +127,15 @@ automation:
 
       # Nur aktualisieren, wenn echter gültiger Wert
       - if:
-          - "{{ delta_loss_eur | float(-9999) != 0 }}"
+          - "{{ delta_loss_eur | float(0) != 0 }}"
         then:
           - variables:
               debug_v2: >
                 [DEBUG FEEDIN V2]
                 saving_raw={{ states('input_number.saving_feedin_loss') }}
-                saving_float={{ states('input_number.saving_feedin_loss') | float(-9999) }}
+                saving_float={{ states('input_number.saving_feedin_loss') | float(0) }}
                 delta={{ delta_loss_eur }}
-                delta_float={{ delta_loss_eur | float(-9999) }}
+                delta_float={{ delta_loss_eur | float(0) }}
 
           - choose:
               - conditions: "{{ is_state('input_boolean.solar_feedin_debug','on') }}"
@@ -142,9 +144,13 @@ automation:
                     data:
                       level: warning
                       message: "{{ debug_v2 }}"
+          # negative Summe, nur wenn negativ aufsummieren
+          - if:
+              - "{{ delta_loss_eur | float(0) < 0 }}"
+            then:
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.saving_feedin_loss
+                data:
+                  value: "{{ ( (states('input_number.saving_feedin_loss') | float(0) )  + (delta_loss_eur | float(0)) ) | round(6) }}"
 
-          - service: input_number.set_value
-            target:
-              entity_id: input_number.saving_feedin_loss
-            data:
-              value: "{{ (states('input_number.saving_feedin_loss') | float(-9999) + delta_loss_eur | float(0) ) | round(6) }}"
